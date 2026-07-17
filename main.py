@@ -29,7 +29,11 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI(title="License System")
 
+from fastapi.responses import FileResponse
 
+@app.get("/admin")
+def admin_panel():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "admin.html"))
 # ------------------------------------------------------------------
 # Schemas
 # ------------------------------------------------------------------
