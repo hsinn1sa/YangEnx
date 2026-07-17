@@ -1,19 +1,10 @@
-"""
-授權系統後端 (FastAPI + Supabase)
-
-端點總覽：
-  POST /api/verify     -> C# 軟體開機時呼叫，首次使用會綁定 HWID
-  POST /api/heartbeat   -> C# 軟體執行期間每 5 秒呼叫一次，確認卡密仍然有效
-  POST /api/admin/keys  -> 管理員新增卡密 (需帶 admin token)
-  GET  /api/admin/keys  -> 管理員查詢卡密列表
-"""
-
 import os
 import uuid
+import asyncio
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Dict
 
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Query
 from pydantic import BaseModel
 from supabase import create_client, Client
 
@@ -29,11 +20,27 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI(title="License System")
 
-from fastapi.responses import FileResponse
+# ------------------------------------------------------------------
+# WebSocket 連線註冊表
+# key = license_key, value = 目前連著的 WebSocket 連線
+# 注意：這是存在記憶體裡的，只適用「單一伺服器實例」(Render 免費方案本來就是單一實例，沒問題)
+# ------------------------------------------------------------------
+active_connections: Dict[str, WebSocket] = {}
 
-@app.get("/admin")
-def admin_panel():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "admin.html"))
+
+async def push_status_to_key(license_key: str, status: str, message: str):
+    """如果這把卡密目前有連線在線上，推播一則狀態訊息給它，然後關閉連線。"""
+    ws = active_connections.get(license_key)
+    if ws is None:
+        return
+    try:
+        await ws.send_json({"status": status, "message": message})
+        await ws.close()
+    except Exception:
+        pass
+    active_connections.pop(license_key, None)
+
+
 # ------------------------------------------------------------------
 # Schemas
 # ------------------------------------------------------------------
@@ -152,9 +159,53 @@ def verify(req: VerifyRequest):
 
 
 # ------------------------------------------------------------------
-# 心跳：軟體執行期間每 5 秒呼叫一次
-# 只要卡密被刪除 / 停用 / 過期 / HWID 不符，回傳非 ok，C# 端就要立刻關閉面板
+# WebSocket：軟體開機驗證成功後改連這條，伺服器只有在卡密被停用/刪除/
+# 過期/HWID被重設時才會主動推播一則訊息，平常完全不用你的軟體主動發請求
 # ------------------------------------------------------------------
+@app.websocket("/ws/license")
+async def ws_license(
+    websocket: WebSocket,
+    license_key: str = Query(...),
+    hwid: str = Query(...),
+    app_secret: str = Query(...),
+):
+    if app_secret != APP_SECRET:
+        await websocket.close(code=4003)
+        return
+
+    await websocket.accept()
+
+    # 先做一次驗證，不合格就直接告知並斷線
+    res = supabase.table("license_keys").select("*").eq("license_key", license_key).execute()
+    if not res.data:
+        await websocket.send_json({"status": "invalid", "message": "卡密不存在或已被刪除"})
+        await websocket.close()
+        return
+
+    row = res.data[0]
+    status, message = check_key_status(row, hwid)
+    if status != "ok":
+        await websocket.send_json({"status": status, "message": message})
+        await websocket.close()
+        return
+
+    # 驗證通過，註冊連線，之後管理員的操作會透過 push_status_to_key 主動推播
+    active_connections[license_key] = websocket
+    await websocket.send_json({"status": "ok", "message": "已建立即時連線"})
+
+    try:
+        # 保持連線開著，等待管理員那邊主動推播，或偵測到斷線
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        # 只有目前註冊的連線就是自己時才移除，避免競態情況下誤刪新連線
+        if active_connections.get(license_key) is websocket:
+            active_connections.pop(license_key, None)
+
+
+
 @app.post("/api/heartbeat", response_model=VerifyResponse)
 def heartbeat(req: HeartbeatRequest):
     check_app_secret(req.app_secret)
@@ -205,8 +256,11 @@ def list_keys():
 
 
 @app.patch("/api/admin/keys/{key_id}/disable", dependencies=[Depends(require_admin)])
-def disable_key(key_id: int):
+async def disable_key(key_id: int):
+    res = supabase.table("license_keys").select("license_key").eq("id", key_id).execute()
     supabase.table("license_keys").update({"status": "disabled"}).eq("id", key_id).execute()
+    if res.data:
+        await push_status_to_key(res.data[0]["license_key"], "disabled", "此卡密已被管理員停用")
     return {"ok": True}
 
 
@@ -217,13 +271,19 @@ def enable_key(key_id: int):
 
 
 @app.patch("/api/admin/keys/{key_id}/reset-hwid", dependencies=[Depends(require_admin)])
-def reset_hwid(key_id: int):
+async def reset_hwid(key_id: int):
     """管理員重設 HWID，讓卡密可以在新裝置上重新綁定"""
+    res = supabase.table("license_keys").select("license_key").eq("id", key_id).execute()
     supabase.table("license_keys").update({"hwid": None}).eq("id", key_id).execute()
+    if res.data:
+        await push_status_to_key(res.data[0]["license_key"], "hwid_mismatch", "裝置綁定已被管理員重設，請重新登入")
     return {"ok": True}
 
 
 @app.delete("/api/admin/keys/{key_id}", dependencies=[Depends(require_admin)])
-def delete_key(key_id: int):
+async def delete_key(key_id: int):
+    res = supabase.table("license_keys").select("license_key").eq("id", key_id).execute()
+    if res.data:
+        await push_status_to_key(res.data[0]["license_key"], "invalid", "此卡密已被管理員刪除")
     supabase.table("license_keys").delete().eq("id", key_id).execute()
     return {"ok": True}
