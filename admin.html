@@ -215,6 +215,74 @@
   .action-group { display: flex; gap: 6px; flex-wrap: wrap; }
   .empty-row td { text-align: center; color: var(--text-dim); padding: 30px; }
   .hwid-tag { font-size: 11px; color: var(--text-dim); }
+
+  /* ================================================================
+     手機版 RWD (螢幕寬度 <= 768px)
+     ================================================================ */
+  @media (max-width: 768px) {
+    header {
+      padding: 16px 18px;
+      margin-bottom: 18px;
+    }
+    .logo { font-size: 17px; }
+    #logout-btn { padding: 7px 12px; font-size: 12px; }
+
+    main { padding: 0 14px 40px; }
+
+    .login-box { width: calc(100vw - 40px); max-width: 360px; padding: 24px; }
+
+    .stats {
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .stat-card { padding: 14px 16px; }
+    .stat-value { font-size: 24px; }
+
+    .panel { padding: 16px; margin-bottom: 16px; }
+    .panel h2 { font-size: 15px; margin-bottom: 16px; }
+
+    /* 表單改成單欄堆疊，不再左右擠壓 */
+    .form-grid {
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .table-toolbar { justify-content: stretch; }
+    .table-toolbar input { width: 100%; }
+
+    /* 表格在手機上改成卡片式排列，不用左右滑動 */
+    table, thead, tbody, th, td, tr { display: block; }
+    thead { display: none; }
+    tbody tr {
+      background: #14141a;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      padding: 4px 0;
+    }
+    tbody tr:hover { background: #14141a; }
+    tbody td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #1e1e28;
+      text-align: right;
+    }
+    tbody td:last-child { border-bottom: none; }
+    tbody td::before {
+      content: attr(data-label);
+      color: var(--text-dim);
+      font-size: 11px;
+      font-weight: 600;
+      text-align: left;
+      flex-shrink: 0;
+    }
+    .action-group { justify-content: flex-end; }
+    .key-cell { word-break: break-all; text-align: right; }
+  }
 </style>
 </head>
 <body>
@@ -409,13 +477,13 @@
 
       return `
         <tr>
-          <td>${k.id}</td>
-          <td class="key-cell">${k.license_key}</td>
-          <td>${escapeHtml(k.username)}</td>
-          <td><span class="hwid-tag">${hwidText}</span></td>
-          <td>${expiryText}</td>
-          <td><span class="badge ${badgeClass}">${badgeText}</span></td>
-          <td>
+          <td data-label="ID">${k.id}</td>
+          <td class="key-cell" data-label="密鑰">${k.license_key}</td>
+          <td data-label="用戶名">${escapeHtml(k.username)}</td>
+          <td data-label="裝置"><span class="hwid-tag">${hwidText}</span></td>
+          <td data-label="到期日">${expiryText}</td>
+          <td data-label="狀態"><span class="badge ${badgeClass}">${badgeText}</span></td>
+          <td data-label="操作">
             <div class="action-group">
               ${k.status === "active"
                 ? `<button class="btn btn-sm btn-amber" onclick="disableKey(${k.id})">停用</button>`
