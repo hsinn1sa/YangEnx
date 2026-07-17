@@ -149,8 +149,30 @@
   .stat-card.total { border-left-color: var(--purple); }
   .stat-card.active { border-left-color: var(--green); }
   .stat-card.expired { border-left-color: var(--red); }
+  .stat-card.online { border-left-color: var(--amber); }
   .stat-label { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
   .stat-value { font-size: 28px; font-weight: 700; }
+
+  /* ---------------- Toggle switch ---------------- */
+  .toggle-switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: #33333f; border-radius: 26px; transition: 0.2s;
+  }
+  .toggle-slider::before {
+    content: ""; position: absolute; height: 20px; width: 20px;
+    left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-slider { background: var(--red); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+  /* ---------------- Online indicator ---------------- */
+  .online-dot { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+  .online-dot .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
+  .online-dot.on .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .online-dot.on { color: var(--green); }
+  .online-dot.off { color: var(--text-dim); }
 
   /* ---------------- Panels ---------------- */
   .panel {
@@ -321,6 +343,31 @@
           <div class="stat-label">已過期/已停用</div>
           <div class="stat-value" id="stat-expired">0</div>
         </div>
+        <div class="stat-card online">
+          <div class="stat-label">目前在線 ONLINE</div>
+          <div class="stat-value" id="stat-online">0</div>
+        </div>
+      </div>
+
+      <!-- 系統維護模式 -->
+      <div class="panel">
+        <h2>系統維護模式</h2>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+          <div>
+            <div style="font-size:13px; color:var(--text-dim); margin-bottom:4px;">
+              開啟後，所有嘗試登入或目前在線的使用者都會立刻被擋下並顯示下方訊息
+            </div>
+            <div id="maintenance-status-tag" class="badge badge-active">維護模式：關閉</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="maintenance-toggle" onchange="onMaintenanceToggle()" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <label>中斷提示訊息</label>
+        <input id="maintenance-message" placeholder="例如: 卡密網站維護中，請稍後再試。" style="width:100%; margin-bottom:14px;" />
+        <button class="btn btn-gradient" onclick="saveMaintenanceSettings()">儲存設定</button>
+        <div id="maintenance-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
       </div>
 
       <!-- 新增授權密鑰 -->
@@ -369,13 +416,14 @@
               <th>密鑰</th>
               <th>用戶名</th>
               <th>裝置</th>
+              <th>連線</th>
               <th>到期日</th>
               <th>狀態</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody id="key-table-body">
-            <tr class="empty-row"><td colspan="7">載入中...</td></tr>
+            <tr class="empty-row"><td colspan="8">載入中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -387,6 +435,7 @@
   const API_BASE = "";
   let adminToken = "";   // 只存在記憶體，重新整理頁面要重新輸入 (不使用 localStorage)
   let allKeys = [];
+  let onlineKeys = new Set(); // 目前有 WebSocket 連線的 license_key 集合
 
   function login() {
     const token = document.getElementById("admin-token-input").value.trim();
@@ -394,6 +443,7 @@
     adminToken = token;
     document.getElementById("login-error").textContent = "";
     fetchKeys(true);
+    fetchMaintenanceSettings();
   }
 
   function logout() {
@@ -430,6 +480,7 @@
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("app").style.display = "block";
       }
+      await fetchOnline();
       renderStats();
       renderTable();
     } catch (err) {
@@ -438,6 +489,15 @@
       } else if (isInitialLogin) {
         document.getElementById("login-error").textContent = "連線失敗，請確認後端網址正確";
       }
+    }
+  }
+
+  async function fetchOnline() {
+    try {
+      const online = await apiFetch("/api/admin/online");
+      onlineKeys = new Set(online.map(o => o.license_key));
+    } catch (err) {
+      // 在線清單抓取失敗不影響主要功能，靜默失敗即可
     }
   }
 
@@ -454,6 +514,7 @@
     document.getElementById("stat-total").textContent = total;
     document.getElementById("stat-active").textContent = active;
     document.getElementById("stat-expired").textContent = expired;
+    document.getElementById("stat-online").textContent = onlineKeys.size;
   }
 
   function renderTable() {
@@ -464,7 +525,7 @@
     );
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">沒有符合的密鑰</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="8">沒有符合的密鑰</td></tr>`;
       return;
     }
 
@@ -474,6 +535,10 @@
       const badgeText = status === "active" ? "啟用中" : (status === "expired" ? "已過期" : "已停用");
       const expiryText = new Date(k.expires_at).toLocaleString("zh-TW", { hour12: false });
       const hwidText = k.hwid ? `已綁定裝置` : `未綁定`;
+      const isOnline = onlineKeys.has(k.license_key);
+      const onlineHtml = isOnline
+        ? `<span class="online-dot on"><span class="dot"></span>在線</span>`
+        : `<span class="online-dot off"><span class="dot"></span>離線</span>`;
 
       return `
         <tr>
@@ -481,6 +546,7 @@
           <td class="key-cell" data-label="密鑰">${k.license_key}</td>
           <td data-label="用戶名">${escapeHtml(k.username)}</td>
           <td data-label="裝置"><span class="hwid-tag">${hwidText}</span></td>
+          <td data-label="連線">${onlineHtml}</td>
           <td data-label="到期日">${expiryText}</td>
           <td data-label="狀態"><span class="badge ${badgeClass}">${badgeText}</span></td>
           <td data-label="操作">
@@ -569,6 +635,55 @@
     if (!confirm("確定要刪除這把密鑰嗎？此操作無法復原，使用中的軟體會在下次心跳檢查時立刻關閉。")) return;
     await apiFetch(`/api/admin/keys/${id}`, { method: "DELETE" });
     fetchKeys();
+  }
+
+  // ------------------------------------------------------
+  // 維護模式
+  // ------------------------------------------------------
+  async function fetchMaintenanceSettings() {
+    try {
+      const settings = await apiFetch("/api/admin/settings");
+      document.getElementById("maintenance-toggle").checked = settings.maintenance_mode;
+      document.getElementById("maintenance-message").value = settings.maintenance_message;
+      updateMaintenanceStatusTag(settings.maintenance_mode);
+    } catch (err) {
+      // 靜默失敗，不影響主要功能
+    }
+  }
+
+  function updateMaintenanceStatusTag(isOn) {
+    const tag = document.getElementById("maintenance-status-tag");
+    tag.textContent = isOn ? "維護模式：開啟中" : "維護模式：關閉";
+    tag.className = "badge " + (isOn ? "badge-disabled" : "badge-active");
+  }
+
+  function onMaintenanceToggle() {
+    const isOn = document.getElementById("maintenance-toggle").checked;
+    updateMaintenanceStatusTag(isOn);
+  }
+
+  async function saveMaintenanceSettings() {
+    const errorEl = document.getElementById("maintenance-error");
+    errorEl.textContent = "";
+
+    const isOn = document.getElementById("maintenance-toggle").checked;
+    const message = document.getElementById("maintenance-message").value.trim() || "卡密網站維護中，請稍後再試。";
+
+    if (isOn && !confirm("確定要開啟維護模式嗎？目前所有在線使用者會立刻被中斷連線。")) {
+      // 使用者取消，把 toggle 復原成目前後端實際狀態
+      fetchMaintenanceSettings();
+      return;
+    }
+
+    try {
+      await apiFetch("/api/admin/settings", {
+        method: "PUT",
+        body: JSON.stringify({ maintenance_mode: isOn, maintenance_message: message }),
+      });
+      fetchKeys();
+    } catch (err) {
+      errorEl.textContent = "儲存失敗，請確認 Admin Token 是否正確";
+    }
   }
 
   // Enter 鍵登入
