@@ -23,6 +23,7 @@ from supabase import create_client, Client
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]  # 用 service_role key，後端專用
 ADMIN_TOKEN = os.environ["ADMIN_TOKEN"]  # 你自己的後台呼叫這組 API 用的密鑰
+APP_SECRET = os.environ["APP_SECRET"]  # 寫死在你 C# 軟體裡的那組密鑰，用來擋非法呼叫
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -35,11 +36,13 @@ app = FastAPI(title="License System")
 class VerifyRequest(BaseModel):
     license_key: str
     hwid: str
+    app_secret: str
 
 
 class HeartbeatRequest(BaseModel):
     license_key: str
     hwid: str
+    app_secret: str
 
 
 class VerifyResponse(BaseModel):
@@ -80,6 +83,11 @@ def require_admin(x_admin_token: str = Header(...)):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+def check_app_secret(provided: str):
+    if provided != APP_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid app secret")
+
+
 def check_key_status(row: dict, hwid: str) -> tuple[str, str]:
     """回傳 (status, message)，共用在 verify / heartbeat"""
     if row["status"] != "active":
@@ -100,6 +108,8 @@ def check_key_status(row: dict, hwid: str) -> tuple[str, str]:
 # ------------------------------------------------------------------
 @app.post("/api/verify", response_model=VerifyResponse)
 def verify(req: VerifyRequest):
+    check_app_secret(req.app_secret)
+
     # 維護模式檢查
     if get_setting("maintenance_mode") == "true":
         msg = get_setting("maintenance_message") or "系統維護中"
@@ -143,6 +153,8 @@ def verify(req: VerifyRequest):
 # ------------------------------------------------------------------
 @app.post("/api/heartbeat", response_model=VerifyResponse)
 def heartbeat(req: HeartbeatRequest):
+    check_app_secret(req.app_secret)
+
     if get_setting("maintenance_mode") == "true":
         msg = get_setting("maintenance_message") or "系統維護中"
         return VerifyResponse(status="maintenance", message=msg)

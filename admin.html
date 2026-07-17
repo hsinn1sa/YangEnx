@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YangEnx 授權管理後台</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --panel-border: #22222e;
+    --cyan: #22d3ee;
+    --purple: #a855f7;
+    --text: #e8e8f0;
+    --text-dim: #8888a0;
+    --red: #f14668;
+    --green: #2ecc9a;
+    --amber: #f0b429;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    background-image:
+      linear-gradient(rgba(34,211,238,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34,211,238,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
+    min-height: 100vh;
+  }
+  a { color: inherit; }
+
+  /* ---------------- Login screen ---------------- */
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .login-box {
+    width: 360px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 32px;
+  }
+  .login-box h1 {
+    font-size: 20px;
+    margin: 0 0 4px;
+  }
+  .login-box .sub {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+  .login-box input {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+  #login-error {
+    color: var(--red);
+    font-size: 13px;
+    margin-bottom: 12px;
+    min-height: 16px;
+  }
+
+  /* ---------------- Shared form controls ---------------- */
+  input, select {
+    background: #0d0d14;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+  }
+  input:focus, select:focus { border-color: var(--cyan); }
+  input::placeholder { color: #4d4d5e; }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--cyan);
+    font-weight: 600;
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+  }
+  .btn {
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #fff;
+  }
+  .btn-gradient {
+    background: linear-gradient(90deg, var(--purple), var(--cyan));
+  }
+  .btn-gradient:hover { opacity: 0.9; }
+  .btn-ghost {
+    background: #1a1a24;
+    color: var(--text-dim);
+  }
+  .btn-ghost:hover { color: var(--text); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 5px; }
+  .btn-blue { background: #2563eb33; color: #60a5fa; border: 1px solid #2563eb55; }
+  .btn-amber { background: #f0b42933; color: var(--amber); border: 1px solid #f0b42955; }
+  .btn-gray { background: #33333f; color: #c0c0d0; border: 1px solid #44445a; }
+  .btn-red { background: #f1466833; color: var(--red); border: 1px solid #f1466855; }
+
+  /* ---------------- App shell ---------------- */
+  #app { display: none; }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--panel-border);
+    margin-bottom: 24px;
+  }
+  .logo { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+  .logo span { color: var(--cyan); }
+  #logout-btn {
+    border: 1px solid var(--red);
+    background: transparent;
+    color: var(--red);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  main { max-width: 1200px; margin: 0 auto; padding: 0 32px 48px; }
+
+  /* ---------------- Stat cards ---------------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-left: 3px solid var(--cyan);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  .stat-card.total { border-left-color: var(--purple); }
+  .stat-card.active { border-left-color: var(--green); }
+  .stat-card.expired { border-left-color: var(--red); }
+  .stat-label { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  .stat-value { font-size: 28px; font-weight: 700; }
+
+  /* ---------------- Panels ---------------- */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .panel h2 {
+    font-size: 16px;
+    margin: 0 0 20px;
+    padding-left: 10px;
+    border-left: 3px solid var(--cyan);
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 0.7fr 1.1fr;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .key-input-row { display: flex; gap: 8px; }
+  .key-input-row input { flex: 1; }
+  .expiry-quick { display: flex; gap: 6px; margin-top: 8px; }
+  .expiry-quick button {
+    flex: 1;
+    font-size: 12px;
+  }
+
+  /* ---------------- Table ---------------- */
+  .table-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 14px;
+  }
+  .table-toolbar input { width: 260px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left;
+    color: var(--cyan);
+    font-size: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  tbody td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #1a1a24;
+    vertical-align: middle;
+  }
+  tbody tr:hover { background: #14141d; }
+  .key-cell { color: var(--purple); font-weight: 600; font-family: monospace; }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-active { background: #2ecc9a22; color: var(--green); }
+  .badge-disabled { background: #f1466822; color: var(--red); }
+  .badge-expired { background: #f1466822; color: var(--red); }
+  .action-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .empty-row td { text-align: center; color: var(--text-dim); padding: 30px; }
+  .hwid-tag { font-size: 11px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+  <!-- ============ 登入畫面 ============ -->
+  <div id="login-screen">
+    <div class="login-box">
+      <h1>YANGENX <span style="color:var(--cyan)">ADMIN</span></h1>
+      <div class="sub">輸入後台密鑰以繼續</div>
+      <label>ADMIN TOKEN</label>
+      <input id="admin-token-input" type="password" placeholder="輸入你的 Admin Token" />
+      <div id="login-error"></div>
+      <button class="btn btn-gradient" style="width:100%" onclick="login()">登入</button>
+    </div>
+  </div>
+
+  <!-- ============ 主畫面 ============ -->
+  <div id="app">
+    <header>
+      <div class="logo">YANGENX <span>ADMIN</span></div>
+      <button id="logout-btn" onclick="logout()">登出</button>
+    </header>
+
+    <main>
+      <!-- 統計卡片 -->
+      <div class="stats">
+        <div class="stat-card total">
+          <div class="stat-label">卡密總數 TOTAL</div>
+          <div class="stat-value" id="stat-total">0</div>
+        </div>
+        <div class="stat-card active">
+          <div class="stat-label">啟用中 ACTIVE</div>
+          <div class="stat-value" id="stat-active">0</div>
+        </div>
+        <div class="stat-card expired">
+          <div class="stat-label">已過期/已停用</div>
+          <div class="stat-value" id="stat-expired">0</div>
+        </div>
+      </div>
+
+      <!-- 新增授權密鑰 -->
+      <div class="panel">
+        <h2>新增授權密鑰</h2>
+        <div class="form-grid">
+          <div>
+            <label>密鑰 LICENSE KEY</label>
+            <div class="key-input-row">
+              <input id="new-key" placeholder="例如: XXXX-YYYY-ZZZZ" />
+              <button class="btn btn-ghost btn-sm" onclick="randomizeKey()">隨機生成</button>
+            </div>
+          </div>
+          <div>
+            <label>用戶名 USER NAME</label>
+            <input id="new-username" placeholder="例如: User01" />
+          </div>
+          <div>
+            <label>最大裝置數</label>
+            <input id="new-max-devices" type="number" min="1" value="1" />
+          </div>
+          <div>
+            <label>到期日 EXPIRY</label>
+            <input id="new-expiry" type="datetime-local" />
+            <div class="expiry-quick">
+              <button class="btn btn-ghost btn-sm" onclick="setExpiry(7)">7天</button>
+              <button class="btn btn-ghost btn-sm" onclick="setExpiry(30)">30天</button>
+              <button class="btn btn-ghost btn-sm" onclick="setExpiry(9999)">永久</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-gradient" style="width:100%" onclick="createKey()">新增密鑰</button>
+        <div id="create-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
+      </div>
+
+      <!-- 密鑰列表 -->
+      <div class="panel">
+        <h2>密鑰列表</h2>
+        <div class="table-toolbar">
+          <input id="search-input" placeholder="搜尋密鑰或用戶名..." oninput="renderTable()" />
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>密鑰</th>
+              <th>用戶名</th>
+              <th>裝置</th>
+              <th>到期日</th>
+              <th>狀態</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="key-table-body">
+            <tr class="empty-row"><td colspan="7">載入中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+<script>
+  // 同源部署，直接打相對路徑就好，不用管網址
+  const API_BASE = "";
+  let adminToken = "";   // 只存在記憶體，重新整理頁面要重新輸入 (不使用 localStorage)
+  let allKeys = [];
+
+  function login() {
+    const token = document.getElementById("admin-token-input").value.trim();
+    if (!token) return;
+    adminToken = token;
+    document.getElementById("login-error").textContent = "";
+    fetchKeys(true);
+  }
+
+  function logout() {
+    adminToken = "";
+    document.getElementById("app").style.display = "none";
+    document.getElementById("login-screen").style.display = "flex";
+    document.getElementById("admin-token-input").value = "";
+  }
+
+  async function apiFetch(path, options = {}) {
+    const res = await fetch(API_BASE + path, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Admin-Token": adminToken,
+        ...(options.headers || {}),
+      },
+    });
+    if (res.status === 401) {
+      throw new Error("UNAUTHORIZED");
+    }
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || "請求失敗");
+    }
+    if (res.status === 204) return null;
+    return res.json();
+  }
+
+  async function fetchKeys(isInitialLogin = false) {
+    try {
+      allKeys = await apiFetch("/api/admin/keys");
+      if (isInitialLogin) {
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("app").style.display = "block";
+      }
+      renderStats();
+      renderTable();
+    } catch (err) {
+      if (err.message === "UNAUTHORIZED") {
+        document.getElementById("login-error").textContent = "Token 錯誤，請重新輸入";
+      } else if (isInitialLogin) {
+        document.getElementById("login-error").textContent = "連線失敗，請確認後端網址正確";
+      }
+    }
+  }
+
+  function keyDisplayStatus(key) {
+    if (key.status !== "active") return "disabled";
+    if (new Date(key.expires_at) < new Date()) return "expired";
+    return "active";
+  }
+
+  function renderStats() {
+    const total = allKeys.length;
+    const active = allKeys.filter(k => keyDisplayStatus(k) === "active").length;
+    const expired = total - active;
+    document.getElementById("stat-total").textContent = total;
+    document.getElementById("stat-active").textContent = active;
+    document.getElementById("stat-expired").textContent = expired;
+  }
+
+  function renderTable() {
+    const q = document.getElementById("search-input").value.trim().toLowerCase();
+    const tbody = document.getElementById("key-table-body");
+    const filtered = allKeys.filter(k =>
+      !q || k.license_key.toLowerCase().includes(q) || k.username.toLowerCase().includes(q)
+    );
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">沒有符合的密鑰</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(k => {
+      const status = keyDisplayStatus(k);
+      const badgeClass = status === "active" ? "badge-active" : (status === "expired" ? "badge-expired" : "badge-disabled");
+      const badgeText = status === "active" ? "啟用中" : (status === "expired" ? "已過期" : "已停用");
+      const expiryText = new Date(k.expires_at).toLocaleString("zh-TW", { hour12: false });
+      const hwidText = k.hwid ? `已綁定裝置` : `未綁定`;
+
+      return `
+        <tr>
+          <td>${k.id}</td>
+          <td class="key-cell">${k.license_key}</td>
+          <td>${escapeHtml(k.username)}</td>
+          <td><span class="hwid-tag">${hwidText}</span></td>
+          <td>${expiryText}</td>
+          <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+          <td>
+            <div class="action-group">
+              ${k.status === "active"
+                ? `<button class="btn btn-sm btn-amber" onclick="disableKey(${k.id})">停用</button>`
+                : `<button class="btn btn-sm btn-blue" onclick="enableKey(${k.id})">啟用</button>`
+              }
+              <button class="btn btn-sm btn-gray" onclick="resetHwid(${k.id})">重設HWID</button>
+              <button class="btn btn-sm btn-red" onclick="deleteKey(${k.id})">刪除</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function randomizeKey() {
+    const seg = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+    document.getElementById("new-key").value = `${seg()}-${seg()}-${seg()}`;
+  }
+
+  function setExpiry(days) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    // datetime-local 需要 YYYY-MM-DDTHH:mm 格式 (本地時間，無時區)
+    const pad = n => String(n).padStart(2, "0");
+    const val = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    document.getElementById("new-expiry").value = val;
+  }
+
+  async function createKey() {
+    const errorEl = document.getElementById("create-error");
+    errorEl.textContent = "";
+
+    const licenseKey = document.getElementById("new-key").value.trim();
+    const username = document.getElementById("new-username").value.trim();
+    const maxDevices = parseInt(document.getElementById("new-max-devices").value, 10) || 1;
+    const expiryLocal = document.getElementById("new-expiry").value;
+
+    if (!username) { errorEl.textContent = "請輸入用戶名"; return; }
+    if (!expiryLocal) { errorEl.textContent = "請選擇到期日"; return; }
+
+    const payload = {
+      username,
+      max_devices: maxDevices,
+      expires_at: new Date(expiryLocal).toISOString(),
+    };
+    if (licenseKey) payload.license_key = licenseKey;
+
+    try {
+      await apiFetch("/api/admin/keys", { method: "POST", body: JSON.stringify(payload) });
+      document.getElementById("new-key").value = "";
+      document.getElementById("new-username").value = "";
+      document.getElementById("new-max-devices").value = "1";
+      document.getElementById("new-expiry").value = "";
+      fetchKeys();
+    } catch (err) {
+      errorEl.textContent = "新增失敗，密鑰可能重複";
+    }
+  }
+
+  async function disableKey(id) {
+    await apiFetch(`/api/admin/keys/${id}/disable`, { method: "PATCH" });
+    fetchKeys();
+  }
+
+  async function enableKey(id) {
+    await apiFetch(`/api/admin/keys/${id}/enable`, { method: "PATCH" });
+    fetchKeys();
+  }
+
+  async function resetHwid(id) {
+    if (!confirm("確定要重設這把密鑰的裝置綁定嗎？下次使用會綁定新裝置。")) return;
+    await apiFetch(`/api/admin/keys/${id}/reset-hwid`, { method: "PATCH" });
+    fetchKeys();
+  }
+
+  async function deleteKey(id) {
+    if (!confirm("確定要刪除這把密鑰嗎？此操作無法復原，使用中的軟體會在下次心跳檢查時立刻關閉。")) return;
+    await apiFetch(`/api/admin/keys/${id}`, { method: "DELETE" });
+    fetchKeys();
+  }
+
+  // Enter 鍵登入
+  document.getElementById("admin-token-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") login();
+  });
+
+  // 每 10 秒自動刷新列表 (面板開著時保持最新狀態)
+  setInterval(() => {
+    if (adminToken) fetchKeys();
+  }, 10000);
+</script>
+</body>
+</html>
