@@ -268,7 +268,7 @@ async def disable_key(key_id: int):
     res = supabase.table("license_keys").select("license_key").eq("id", key_id).execute()
     supabase.table("license_keys").update({"status": "disabled"}).eq("id", key_id).execute()
     if res.data:
-        await push_status_to_key(res.data[0]["license_key"], "disabled", "此卡密已被管理員停用")
+        await push_status_to_key(res.data[0]["license_key"], "disabled", "此卡密已被停用")
     return {"ok": True}
 
 
