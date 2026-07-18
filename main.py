@@ -34,6 +34,14 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI(title="License System")
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "License System is running"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 @app.get("/admin")
 def admin_panel():
     return FileResponse(os.path.join(os.path.dirname(__file__), "admin.html"))
