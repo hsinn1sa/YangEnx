@@ -321,7 +321,7 @@ async def disable_key(key_id: int):
     res = supabase.table("license_keys").select("license_key").eq("id", key_id).execute()
     supabase.table("license_keys").update({"status": "disabled"}).eq("id", key_id).execute()
     if res.data:
-        await push_status_to_key(res.data[0]["license_key"], "disabled", "此卡密已被管理員停用")
+        await push_status_to_key(res.data[0]["license_key"], "disabled", "此卡密被停用")
     return {"ok": True}
 
 
@@ -337,7 +337,7 @@ async def reset_hwid(key_id: int):
     res = supabase.table("license_keys").select("license_key").eq("id", key_id).execute()
     supabase.table("license_keys").update({"hwid": None}).eq("id", key_id).execute()
     if res.data:
-        await push_status_to_key(res.data[0]["license_key"], "hwid_mismatch", "裝置綁定已被管理員重設，請重新登入")
+        await push_status_to_key(res.data[0]["license_key"], "hwid_mismatch", "裝置綁定已被重設，請重新登入")
     return {"ok": True}
 
 
@@ -345,7 +345,7 @@ async def reset_hwid(key_id: int):
 async def delete_key(key_id: int):
     res = supabase.table("license_keys").select("license_key").eq("id", key_id).execute()
     if res.data:
-        await push_status_to_key(res.data[0]["license_key"], "invalid", "此卡密已被管理員刪除")
+        await push_status_to_key(res.data[0]["license_key"], "invalid", "此卡密已被刪除")
     supabase.table("license_keys").delete().eq("id", key_id).execute()
     return {"ok": True}
 
