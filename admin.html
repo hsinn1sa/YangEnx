@@ -427,15 +427,6 @@
           </tbody>
         </table>
       </div>
-      <!-- 版本控制面板 -->
-<div class="panel">
-  <h2>版本控制</h2>
-  <div style="display: flex; gap: 10px; align-items: center;">
-    <input id="version-input" placeholder="例如: 1.0.0" style="flex: 1;" />
-    <button class="btn btn-gradient" onclick="updateVersion()">更新版本號</button>
-  </div>
-  <div id="version-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
-</div>
     </main>
   </div>
 
@@ -461,30 +452,7 @@
     document.getElementById("login-screen").style.display = "flex";
     document.getElementById("admin-token-input").value = "";
   }
-async function updateVersion() {
-  const errorEl = document.getElementById("version-error");
-  errorEl.textContent = "";
-  const version = document.getElementById("version-input").value.trim();
-  
-  if (!version) { errorEl.textContent = "請輸入版本號"; return; }
 
-  try {
-    await apiFetch("/api/admin/version", {
-      method: "PUT",
-      body: JSON.stringify({ latest_version: version }),
-    });
-    alert("版本號已更新為: " + version);
-  } catch (err) {
-    errorEl.textContent = "更新失敗";
-  }
-}
-
-async function fetchVersion() {
-  try {
-    const res = await apiFetch("/api/admin/version");
-    document.getElementById("version-input").value = res.latest_version;
-  } catch (err) {}
-}
   async function apiFetch(path, options = {}) {
     const res = await fetch(API_BASE + path, {
       ...options,
