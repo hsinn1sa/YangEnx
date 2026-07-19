@@ -83,6 +83,7 @@ class VerifyRequest(BaseModel):
     license_key: str
     hwid: str
     app_secret: str
+    version: str
 
 
 class HeartbeatRequest(BaseModel):
@@ -108,6 +109,7 @@ class CreateKeyRequest(BaseModel):
 class MaintenanceSettingsRequest(BaseModel):
     maintenance_mode: bool
     maintenance_message: str = "卡密網站維護中，請稍後再試。"
+    latest_version: Optional[str] = None
 
 
 # ------------------------------------------------------------------
@@ -173,6 +175,10 @@ def is_maintenance_mode() -> bool:
 @app.post("/api/verify", response_model=VerifyResponse)
 def verify(req: VerifyRequest):
     check_app_secret(req.app_secret)
+
+    latest = get_setting("latest_version") or "v1.0.0" # 假設預設值
+    if req.version != latest:
+        return VerifyResponse(status="version_mismatch", message=f"偵測到新版本，請前往更新至 {latest}。")
 
     if is_maintenance_mode():
         msg = get_setting("maintenance_message") or "系統維護中"
@@ -383,6 +389,9 @@ async def update_settings(req: MaintenanceSettingsRequest):
 
     set_setting("maintenance_mode", "true" if req.maintenance_mode else "false")
     set_setting("maintenance_message", req.maintenance_message)
+
+    if hasattr(req, 'latest_version'):
+        set_setting("latest_version", req.latest_version)
 
     # 從關閉切換成開啟時，立刻踢掉所有在線使用者，不用等他們下次連線才發現
     if req.maintenance_mode and not was_on:

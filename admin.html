@@ -366,6 +366,8 @@
         </div>
         <label>中斷提示訊息</label>
         <input id="maintenance-message" placeholder="例如: 卡密網站維護中，請稍後再試。" style="width:100%; margin-bottom:14px;" />
+        <label style="margin-top:14px; display:block;">最新版本號</label>
+<input id="latest-version-input" placeholder="例如: v1.0.3" style="width:100%; margin-bottom:14px;" />
         <button class="btn btn-gradient" onclick="saveMaintenanceSettings()">儲存設定</button>
         <div id="maintenance-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
       </div>
@@ -668,23 +670,28 @@
 
     const isOn = document.getElementById("maintenance-toggle").checked;
     const message = document.getElementById("maintenance-message").value.trim() || "卡密網站維護中，請稍後再試。";
+    const version = document.getElementById("latest-version-input").value.trim(); // 取得新版本號[cite: 6]
 
-    if (isOn && !confirm("確定要開啟維護模式嗎？目前所有在線使用者會立刻被中斷連線。")) {
-      // 使用者取消，把 toggle 復原成目前後端實際狀態
-      fetchMaintenanceSettings();
-      return;
+    if (isOn && !confirm("確定要開啟維護模式嗎？")) {
+        fetchMaintenanceSettings();
+        return;
     }
 
     try {
-      await apiFetch("/api/admin/settings", {
-        method: "PUT",
-        body: JSON.stringify({ maintenance_mode: isOn, maintenance_message: message }),
-      });
-      fetchKeys();
+        await apiFetch("/api/admin/settings", {
+            method: "PUT",
+            body: JSON.stringify({ 
+                maintenance_mode: isOn, 
+                maintenance_message: message,
+                latest_version: version // 送給後端
+            }),
+        });
+        alert("設定已儲存！");
+        fetchKeys();
     } catch (err) {
-      errorEl.textContent = "儲存失敗，請確認 Admin Token 是否正確";
+        errorEl.textContent = "儲存失敗，請確認 Admin Token";
     }
-  }
+}
 
   // Enter 鍵登入
   document.getElementById("admin-token-input").addEventListener("keydown", (e) => {
