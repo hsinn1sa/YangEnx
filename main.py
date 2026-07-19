@@ -380,6 +380,7 @@ def get_settings():
     return {
         "maintenance_mode": get_setting("maintenance_mode") == "true",
         "maintenance_message": get_setting("maintenance_message") or "卡密網站維護中，請稍後再試。",
+        "latest_version": get_setting("latest_version") or "v1.0.0"
     }
 
 

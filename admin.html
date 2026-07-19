@@ -648,8 +648,12 @@
       document.getElementById("maintenance-toggle").checked = settings.maintenance_mode;
       document.getElementById("maintenance-message").value = settings.maintenance_message;
       updateMaintenanceStatusTag(settings.maintenance_mode);
+
+      if (settings.latest_version) {
+            document.getElementById("latest-version-input").value = settings.latest_version;
+        }
     } catch (err) {
-      // 靜默失敗，不影響主要功能
+      console.error("無法取得維護設定", err);
     }
   }
 
