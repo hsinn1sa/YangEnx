@@ -190,12 +190,15 @@
   }
   .form-grid {
     display: grid;
-    grid-template-columns: 1.4fr 1fr 0.7fr 1.1fr;
+    grid-template-columns: 1fr 1.5fr 1fr 0.6fr 1.4fr;
     gap: 16px;
     margin-bottom: 18px;
   }
-  .key-input-row { display: flex; gap: 8px; }
-  .key-input-row input { flex: 1; }
+  .form-grid > div { min-width: 0; }
+  .form-grid input, .form-grid select { width: 100%; box-sizing: border-box; min-width: 0; }
+  .key-input-row { display: flex; gap: 8px; min-width: 0; }
+  .key-input-row input { flex: 1; min-width: 0; }
+  .key-input-row .btn { flex-shrink: 0; white-space: nowrap; }
   .expiry-quick { display: flex; gap: 6px; margin-top: 8px; }
   .expiry-quick button {
     flex: 1;
@@ -206,8 +209,12 @@
   .table-toolbar {
     display: flex;
     justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
     margin-bottom: 14px;
   }
+  .table-toolbar.split { justify-content: space-between; }
+  .table-toolbar select { width: 220px; }
   .table-toolbar input { width: 260px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   thead th {
@@ -237,6 +244,41 @@
   .action-group { display: flex; gap: 6px; flex-wrap: wrap; }
   .empty-row td { text-align: center; color: var(--text-dim); padding: 30px; }
   .hwid-tag { font-size: 11px; color: var(--text-dim); }
+
+  /* ---------------- Applications (multi-app) ---------------- */
+  .app-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+  .app-create-row { display: flex; gap: 8px; }
+  .app-create-row input { width: 220px; }
+  .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .app-card {
+    background: #0d0d14;
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .app-card-name { font-size: 15px; font-weight: 700; margin-bottom: 12px; word-break: break-all; }
+  .app-field { margin-bottom: 10px; }
+  .app-field-label {
+    font-size: 10px; letter-spacing: 0.5px; color: var(--text-dim);
+    text-transform: uppercase; margin-bottom: 4px; display: block;
+  }
+  .app-field-value {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    background: #08080d; border: 1px solid var(--panel-border); border-radius: 6px;
+    padding: 8px 10px; font-family: monospace; font-size: 12.5px;
+    color: var(--text);
+  }
+  .app-field-value .value-text { overflow-x: auto; white-space: nowrap; flex: 1; }
+  .app-field-value .value-text.secret-hidden { letter-spacing: 2px; }
+  .icon-btn {
+    background: none; border: none; color: var(--text-dim); cursor: pointer;
+    padding: 2px 4px; font-size: 13px; flex-shrink: 0;
+  }
+  .icon-btn:hover { color: var(--cyan); }
+  .app-card-actions { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  .app-empty { color: var(--text-dim); font-size: 13px; padding: 12px 0; }
+  .current-app-tag { font-size: 12px; color: var(--text-dim); margin-bottom: 14px; }
+  .current-app-tag b { color: var(--cyan); }
 
   /* ================================================================
      手機版 RWD (螢幕寬度 <= 768px)
@@ -270,8 +312,14 @@
       gap: 14px;
     }
 
-    .table-toolbar { justify-content: stretch; }
+    .table-toolbar { justify-content: stretch; flex-direction: column; }
+    .table-toolbar select,
     .table-toolbar input { width: 100%; }
+
+    .app-toolbar { flex-direction: column; align-items: stretch; }
+    .app-create-row { flex-direction: column; }
+    .app-create-row input { width: 100%; }
+    .app-grid { grid-template-columns: 1fr; }
 
     /* 表格在手機上改成卡片式排列，不用左右滑動 */
     table, thead, tbody, th, td, tr { display: block; }
@@ -349,13 +397,35 @@
         </div>
       </div>
 
+      <!-- 應用程式管理 (多應用程式支援) -->
+      <div class="panel">
+        <h2>應用程式管理</h2>
+        <div class="app-toolbar">
+          <div style="font-size:13px; color:var(--text-dim);">
+            每個應用程式都有各自獨立的 App Secret，寫進不同的軟體裡就能各自獨立管理，卡密也互不相通。
+          </div>
+          <div class="app-create-row">
+            <input id="new-app-name" placeholder="新應用程式名稱，例如: YangEnx control" />
+            <button class="btn btn-gradient btn-sm" onclick="createApplication()">+ 新增應用程式</button>
+          </div>
+        </div>
+        <div id="app-create-error" style="color:var(--red); font-size:13px; margin-bottom:12px;"></div>
+        <div id="app-grid" class="app-grid">
+          <div class="app-empty">載入中...</div>
+        </div>
+      </div>
+
       <!-- 系統維護模式 -->
       <div class="panel">
         <h2>系統維護模式</h2>
+        <div style="margin-bottom:16px;">
+          <label>套用到哪個應用程式</label>
+          <select id="maintenance-app-select" onchange="fetchMaintenanceSettings()"></select>
+        </div>
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
           <div>
             <div style="font-size:13px; color:var(--text-dim); margin-bottom:4px;">
-              開啟後，所有嘗試登入或目前在線的使用者都會立刻被擋下並顯示下方訊息
+              開啟後，這個應用程式底下所有嘗試登入或目前在線的使用者都會立刻被擋下並顯示下方訊息，其他應用程式不受影響
             </div>
             <div id="maintenance-status-tag" class="badge badge-active">維護模式：關閉</div>
           </div>
@@ -365,9 +435,9 @@
           </label>
         </div>
         <label>中斷提示訊息</label>
-        <input id="maintenance-message" placeholder="例如: 卡密網站維護中，請稍後再試。" style="width:100%; margin-bottom:14px;" />
+        <input id="maintenance-message" placeholder="例如: 卡密系統維護中" style="width:100%; margin-bottom:14px;" />
         <label style="margin-top:14px; display:block;">最新版本號</label>
-<input id="latest-version-input" placeholder="例如: v1.0.3" style="width:100%; margin-bottom:14px;" />
+        <input id="latest-version-input" placeholder="例如: v1.0.3" style="width:100%; margin-bottom:14px;" />
         <button class="btn btn-gradient" onclick="saveMaintenanceSettings()">儲存設定</button>
         <div id="maintenance-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
       </div>
@@ -376,6 +446,10 @@
       <div class="panel">
         <h2>新增授權密鑰</h2>
         <div class="form-grid">
+          <div>
+            <label>所屬應用程式 APP</label>
+            <select id="new-key-app"></select>
+          </div>
           <div>
             <label>密鑰 LICENSE KEY</label>
             <div class="key-input-row">
@@ -408,7 +482,10 @@
       <!-- 密鑰列表 -->
       <div class="panel">
         <h2>密鑰列表</h2>
-        <div class="table-toolbar">
+        <div class="table-toolbar split">
+          <select id="filter-app-id" onchange="fetchKeys()">
+            <option value="">全部應用程式</option>
+          </select>
           <input id="search-input" placeholder="搜尋密鑰或用戶名..." oninput="renderTable()" />
         </div>
         <table>
@@ -416,6 +493,7 @@
             <tr>
               <th>ID</th>
               <th>密鑰</th>
+              <th>應用程式</th>
               <th>用戶名</th>
               <th>裝置</th>
               <th>連線</th>
@@ -425,7 +503,7 @@
             </tr>
           </thead>
           <tbody id="key-table-body">
-            <tr class="empty-row"><td colspan="8">載入中...</td></tr>
+            <tr class="empty-row"><td colspan="9">載入中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -437,15 +515,16 @@
   const API_BASE = "";
   let adminToken = "";   // 只存在記憶體，重新整理頁面要重新輸入 (不使用 localStorage)
   let allKeys = [];
+  let allApps = [];
   let onlineKeys = new Set(); // 目前有 WebSocket 連線的 license_key 集合
+  let visibleSecrets = new Set(); // 目前被展開顯示的 app_secret 所屬 app id
 
   function login() {
     const token = document.getElementById("admin-token-input").value.trim();
     if (!token) return;
     adminToken = token;
     document.getElementById("login-error").textContent = "";
-    fetchKeys(true);
-    fetchMaintenanceSettings();
+    fetchApplications(true);
   }
 
   function logout() {
@@ -469,27 +548,177 @@
     }
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(text || "請求失敗");
+      let detail = text;
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && parsed.detail) detail = parsed.detail;
+      } catch (parseErr) {
+        // 回應本來就不是 JSON，直接用原始文字
+      }
+      throw new Error(detail || "請求失敗");
     }
     if (res.status === 204) return null;
     return res.json();
   }
 
-  async function fetchKeys(isInitialLogin = false) {
+  // ------------------------------------------------------
+  // 應用程式管理 (多應用程式支援)
+  // ------------------------------------------------------
+  async function fetchApplications(isInitialLogin = false) {
     try {
-      allKeys = await apiFetch("/api/admin/keys");
+      allApps = await apiFetch("/api/admin/apps");
       if (isInitialLogin) {
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("app").style.display = "block";
       }
+      renderApplications();
+      populateAppSelects();
+      await fetchKeys(); // 卡密列表需要 app 名稱，所以在 apps 載入完之後才抓
+      await fetchMaintenanceSettings(); // 維護模式現在是各應用程式獨立的，也要在 apps 載入完之後才抓
+    } catch (err) {
+      if (err.message === "UNAUTHORIZED") {
+        document.getElementById("login-error").textContent = "Token 錯誤，請重新輸入";
+      } else if (isInitialLogin) {
+        document.getElementById("login-error").textContent = "連線失敗，請確認後端網址正確";
+      }
+    }
+  }
+
+  function renderApplications() {
+    const grid = document.getElementById("app-grid");
+    if (allApps.length === 0) {
+      grid.innerHTML = `<div class="app-empty">目前還沒有任何應用程式，請先在上面建立一個。</div>`;
+      return;
+    }
+    grid.innerHTML = allApps.map(a => {
+      const secretShown = visibleSecrets.has(a.id);
+      const secretDisplay = secretShown ? a.app_secret : "•".repeat(24);
+      const created = a.created_at ? new Date(a.created_at).toLocaleDateString("zh-TW") : "-";
+      return `
+        <div class="app-card">
+          <div class="app-card-name">${escapeHtml(a.name)}</div>
+
+          <div class="app-field">
+            <span class="app-field-label">Account Owner ID</span>
+            <div class="app-field-value">
+              <span class="value-text">${escapeHtml(a.owner_id)}</span>
+              <button class="icon-btn" title="複製" onclick="copyToClipboard('${a.owner_id}')">⧉</button>
+            </div>
+          </div>
+
+          <div class="app-field">
+            <span class="app-field-label">Application Secret</span>
+            <div class="app-field-value">
+              <span class="value-text ${secretShown ? '' : 'secret-hidden'}">${secretDisplay}</span>
+              <button class="icon-btn" title="${secretShown ? '隱藏' : '顯示'}" onclick="toggleSecret('${a.id}')">${secretShown ? '🙈' : '👁'}</button>
+              <button class="icon-btn" title="複製" onclick="copyToClipboard('${a.app_secret}')">⧉</button>
+            </div>
+          </div>
+
+          <div style="font-size:11px; color:var(--text-dim);">建立於 ${created}</div>
+
+          <div class="app-card-actions">
+            <button class="btn btn-sm btn-gray" onclick="rotateAppSecret('${a.id}')">重設金鑰</button>
+            <button class="btn btn-sm btn-red" onclick="deleteApplication('${a.id}')">刪除應用程式</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function populateAppSelects() {
+    const options = allApps.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
+
+    const newKeySelect = document.getElementById("new-key-app");
+    const prevSelected = newKeySelect.value;
+    newKeySelect.innerHTML = allApps.length
+      ? options
+      : `<option value="">請先建立應用程式</option>`;
+    if (allApps.some(a => a.id === prevSelected)) newKeySelect.value = prevSelected;
+
+    const filterSelect = document.getElementById("filter-app-id");
+    const prevFilter = filterSelect.value;
+    filterSelect.innerHTML = `<option value="">全部應用程式</option>` + options;
+    filterSelect.value = prevFilter;
+
+    const maintenanceSelect = document.getElementById("maintenance-app-select");
+    const prevMaintenance = maintenanceSelect.value;
+    maintenanceSelect.innerHTML = allApps.length
+      ? options
+      : `<option value="">請先建立應用程式</option>`;
+    // 維持原本選擇的應用程式；如果它被刪除了 (清單裡已經沒有)，才改選第一個
+    if (allApps.some(a => a.id === prevMaintenance)) {
+      maintenanceSelect.value = prevMaintenance;
+    } else if (allApps.length) {
+      maintenanceSelect.value = allApps[0].id;
+    }
+  }
+
+  function toggleSecret(appId) {
+    if (visibleSecrets.has(appId)) visibleSecrets.delete(appId);
+    else visibleSecrets.add(appId);
+    renderApplications();
+  }
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      // 部分瀏覽器/非 HTTPS 環境下 clipboard API 可能無法使用，靜默失敗即可
+    }
+  }
+
+  async function createApplication() {
+    const errorEl = document.getElementById("app-create-error");
+    errorEl.textContent = "";
+    const nameInput = document.getElementById("new-app-name");
+    const name = nameInput.value.trim();
+    if (!name) { errorEl.textContent = "請輸入應用程式名稱"; return; }
+
+    try {
+      await apiFetch("/api/admin/apps", { method: "POST", body: JSON.stringify({ name }) });
+      nameInput.value = "";
+      await fetchApplications();
+    } catch (err) {
+      errorEl.textContent = "建立失敗：" + err.message;
+    }
+  }
+
+  async function rotateAppSecret(appId) {
+    if (!confirm("確定要重設這個應用程式的金鑰嗎？舊金鑰會立刻失效，所有還在用舊金鑰的軟體會需要更新後才能繼續驗證。")) return;
+    try {
+      await apiFetch(`/api/admin/apps/${appId}/rotate-secret`, { method: "PATCH" });
+      visibleSecrets.add(appId); // 重設後直接顯示新金鑰，方便馬上複製更新到程式裡
+      await fetchApplications();
+    } catch (err) {
+      alert("重設失敗：" + err.message);
+    }
+  }
+
+  async function deleteApplication(appId) {
+    if (!confirm("確定要刪除這個應用程式嗎？底下所有卡密會一併被永久刪除，此操作無法復原！")) return;
+    try {
+      await apiFetch(`/api/admin/apps/${appId}`, { method: "DELETE" });
+      await fetchApplications();
+    } catch (err) {
+      alert("刪除失敗：" + err.message);
+    }
+  }
+
+  // ------------------------------------------------------
+  // 卡密管理
+  // ------------------------------------------------------
+  async function fetchKeys() {
+    try {
+      const appId = document.getElementById("filter-app-id").value;
+      const path = appId ? `/api/admin/keys?app_id=${encodeURIComponent(appId)}` : "/api/admin/keys";
+      allKeys = await apiFetch(path);
       await fetchOnline();
       renderStats();
       renderTable();
     } catch (err) {
       if (err.message === "UNAUTHORIZED") {
         document.getElementById("login-error").textContent = "Token 錯誤，請重新輸入";
-      } else if (isInitialLogin) {
-        document.getElementById("login-error").textContent = "連線失敗，請確認後端網址正確";
       }
     }
   }
@@ -527,7 +756,7 @@
     );
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="8">沒有符合的密鑰</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="9">沒有符合的密鑰</td></tr>`;
       return;
     }
 
@@ -541,11 +770,13 @@
       const onlineHtml = isOnline
         ? `<span class="online-dot on"><span class="dot"></span>在線</span>`
         : `<span class="online-dot off"><span class="dot"></span>離線</span>`;
+      const appName = k.applications && k.applications.name ? k.applications.name : "-";
 
       return `
         <tr>
           <td data-label="ID">${k.id}</td>
           <td class="key-cell" data-label="密鑰">${k.license_key}</td>
+          <td data-label="應用程式">${escapeHtml(appName)}</td>
           <td data-label="用戶名">${escapeHtml(k.username)}</td>
           <td data-label="裝置"><span class="hwid-tag">${hwidText}</span></td>
           <td data-label="連線">${onlineHtml}</td>
@@ -590,15 +821,18 @@
     const errorEl = document.getElementById("create-error");
     errorEl.textContent = "";
 
+    const appId = document.getElementById("new-key-app").value;
     const licenseKey = document.getElementById("new-key").value.trim();
     const username = document.getElementById("new-username").value.trim();
     const maxDevices = parseInt(document.getElementById("new-max-devices").value, 10) || 1;
     const expiryLocal = document.getElementById("new-expiry").value;
 
+    if (!appId) { errorEl.textContent = "請先建立並選擇一個應用程式"; return; }
     if (!username) { errorEl.textContent = "請輸入用戶名"; return; }
     if (!expiryLocal) { errorEl.textContent = "請選擇到期日"; return; }
 
     const payload = {
+      app_id: appId,
       username,
       max_devices: maxDevices,
       expires_at: new Date(expiryLocal).toISOString(),
@@ -613,7 +847,7 @@
       document.getElementById("new-expiry").value = "";
       fetchKeys();
     } catch (err) {
-      errorEl.textContent = "新增失敗，密鑰可能重複";
+      errorEl.textContent = "新增失敗：" + err.message;
     }
   }
 
@@ -643,15 +877,14 @@
   // 維護模式
   // ------------------------------------------------------
   async function fetchMaintenanceSettings() {
+    const appId = document.getElementById("maintenance-app-select").value;
+    if (!appId) return; // 還沒有任何應用程式可以選
     try {
-      const settings = await apiFetch("/api/admin/settings");
+      const settings = await apiFetch(`/api/admin/settings?app_id=${encodeURIComponent(appId)}`);
       document.getElementById("maintenance-toggle").checked = settings.maintenance_mode;
       document.getElementById("maintenance-message").value = settings.maintenance_message;
+      document.getElementById("latest-version-input").value = settings.latest_version;
       updateMaintenanceStatusTag(settings.maintenance_mode);
-
-      if (settings.latest_version) {
-            document.getElementById("latest-version-input").value = settings.latest_version;
-        }
     } catch (err) {
       console.error("無法取得維護設定", err);
     }
@@ -672,11 +905,14 @@
     const errorEl = document.getElementById("maintenance-error");
     errorEl.textContent = "";
 
-    const isOn = document.getElementById("maintenance-toggle").checked;
-    const message = document.getElementById("maintenance-message").value.trim() || "卡密網站維護中，請稍後再試。";
-    const version = document.getElementById("latest-version-input").value.trim(); // 取得新版本號[cite: 6]
+    const appId = document.getElementById("maintenance-app-select").value;
+    if (!appId) { errorEl.textContent = "請先建立並選擇一個應用程式"; return; }
 
-    if (isOn && !confirm("確定要開啟維護模式嗎？")) {
+    const isOn = document.getElementById("maintenance-toggle").checked;
+    const message = document.getElementById("maintenance-message").value.trim() || "卡密系統維護中";
+    const version = document.getElementById("latest-version-input").value.trim() || "v1.0.0";
+
+    if (isOn && !confirm("確定要開啟這個應用程式的維護模式嗎？該應用程式底下所有在線使用者會立刻被擋下。")) {
         fetchMaintenanceSettings();
         return;
     }
@@ -684,16 +920,17 @@
     try {
         await apiFetch("/api/admin/settings", {
             method: "PUT",
-            body: JSON.stringify({ 
-                maintenance_mode: isOn, 
+            body: JSON.stringify({
+                app_id: appId,
+                maintenance_mode: isOn,
                 maintenance_message: message,
-                latest_version: version // 送給後端
+                latest_version: version
             }),
         });
         alert("設定已儲存！");
         fetchKeys();
     } catch (err) {
-        errorEl.textContent = "儲存失敗，請確認 Admin Token";
+        errorEl.textContent = "儲存失敗：" + err.message;
     }
 }
 
