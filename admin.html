@@ -615,15 +615,26 @@
             </div>
           </div>
 
-          <div style="font-size:11px; color:var(--text-dim);">建立於 ${created}</div>
+          <div style="font-size:11px; color:var(--text-dim); margin-bottom: 8px;">建立於 ${created}</div>
 
           <div class="app-card-actions">
+            <button class="btn btn-sm btn-blue" onclick="copySnippet('${escapeJsString(a.name)}', '${a.owner_id}', '${a.app_secret}')">複製 C# 初始化程式碼</button>
             <button class="btn btn-sm btn-gray" onclick="rotateAppSecret('${a.id}')">重設金鑰</button>
             <button class="btn btn-sm btn-red" onclick="deleteApplication('${a.id}')">刪除應用程式</button>
           </div>
         </div>
       `;
     }).join("");
+  }
+
+  function escapeJsString(str) {
+    return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+
+  function copySnippet(name, ownerId, secret) {
+    const code = `YangEnxApi.Init(\n    appName: "${name}",\n    ownerId: "${ownerId}",\n    appSecret: "${secret}",\n    version: Program.Version\n);`;
+    copyToClipboard(code);
+    alert("已將 KeyAuth 風格 C# 初始化程式碼複製至剪貼簿！");
   }
 
   function populateAppSelects() {

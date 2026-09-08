@@ -105,12 +105,15 @@ class VerifyRequest(BaseModel):
     hwid: str
     app_secret: str
     version: str
+    owner_id: Optional[str] = None
+    app_name: Optional[str] = None
 
 
 class HeartbeatRequest(BaseModel):
     license_key: str
     hwid: str
     app_secret: str
+    owner_id: Optional[str] = None
 
 
 class VerifyResponse(BaseModel):
@@ -240,6 +243,13 @@ def check_key_status(row: dict, hwid: str) -> tuple[str, str]:
 @app.post("/api/verify", response_model=VerifyResponse)
 def verify(req: VerifyRequest):
     application = resolve_app(req.app_secret)
+    
+    # 雙重憑證驗證 (比照 KeyAuth)
+    if req.owner_id and application.get("owner_id") != req.owner_id:
+        return VerifyResponse(status="invalid", message="應用程式憑證 (Owner ID) 錯誤")
+    if req.app_name and application.get("name") != req.app_name:
+        return VerifyResponse(status="invalid", message="應用程式名稱不匹配")
+
     settings = get_app_settings(application["id"])
 
     if req.version != settings["latest_version"]:
@@ -296,12 +306,18 @@ async def ws_license(
     license_key: str = Query(...),
     hwid: str = Query(...),
     app_secret: str = Query(...),
+    owner_id: Optional[str] = Query(None),
+    app_name: Optional[str] = Query(None),
 ):
     res_app = supabase.table("license_applications").select("*").eq("app_secret", app_secret).execute()
     if not res_app.data:
         await websocket.close(code=4003)
         return
     application = res_app.data[0]
+
+    if owner_id and application.get("owner_id") != owner_id:
+        await websocket.close(code=4003)
+        return
 
     await websocket.accept()
 
@@ -341,9 +357,11 @@ async def ws_license(
     await websocket.send_json({"status": "ok", "message": "已建立即時連線"})
 
     try:
-        # 保持連線開著，等待管理員那邊主動推播，或偵測到斷線
+        # 保持連線開著，收到心跳 ping 回傳 pong，等待管理員主動推播或斷線
         while True:
-            await websocket.receive_text()
+            text = await websocket.receive_text()
+            if text == "ping" or "ping" in text:
+                await websocket.send_json({"status": "pong", "message": "pong"})
     except WebSocketDisconnect:
         pass
     finally:
