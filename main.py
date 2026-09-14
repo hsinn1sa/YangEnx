@@ -39,16 +39,16 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 # ------------------------------------------------------------------
 # 環境設定
 # ------------------------------------------------------------------
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]  # 用 service_role key，後端專用
-ADMIN_TOKEN = os.environ["ADMIN_TOKEN"]  # 你自己的後台呼叫這組 API 用的密鑰
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_KEY") or ""
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 
 # 注意：原本寫死在環境變數裡的單一 APP_SECRET 已經被移除。
 # 現在每個「應用程式」都有自己獨立的 app_secret，存在 Supabase 的 applications 表裡，
 # 由 /api/admin/apps 建立，C# 端改成呼叫 /api/verify 時帶自己那組 app_secret 即可。
 # 部署時記得把舊的 APP_SECRET 環境變數移除 (程式不再讀取它)。
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase: Optional[Client] = create_client(SUPABASE_URL, SUPABASE_KEY) if (SUPABASE_URL and SUPABASE_KEY) else None
 
 app = FastAPI(title="License System")
 
