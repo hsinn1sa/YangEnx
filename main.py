@@ -27,10 +27,13 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, Dict
 
-from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Query, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from supabase import create_client, Client
+
+UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 # ------------------------------------------------------------------
 # 環境設定
@@ -571,3 +574,84 @@ async def update_settings(req: MaintenanceSettingsRequest):
         await broadcast_to_app(req.app_id, "maintenance", req.maintenance_message)
 
     return {"ok": True}
+
+
+# ------------------------------------------------------------------
+# 檔案上傳與版本更新 API (Client.dll 管理)
+# ------------------------------------------------------------------
+@app.post("/api/admin/apps/{app_id}/upload-client", dependencies=[Depends(require_admin)])
+async def upload_client_file(
+    app_id: str,
+    file: UploadFile = File(...),
+    version: Optional[str] = Form(None)
+):
+    get_application_or_404(app_id)
+    save_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+
+    content = await file.read()
+    with open(save_path, "wb") as f:
+        f.write(content)
+
+    settings = get_app_settings(app_id)
+    latest_version = version.strip() if version and version.strip() else settings["latest_version"]
+    set_app_settings(app_id, settings["maintenance_mode"], settings["maintenance_message"], latest_version)
+
+    return {
+        "ok": True,
+        "filename": file.filename,
+        "size": len(content),
+        "version": latest_version
+    }
+
+
+@app.get("/api/admin/apps/{app_id}/client-info", dependencies=[Depends(require_admin)])
+def get_client_file_info(app_id: str):
+    get_application_or_404(app_id)
+    settings = get_app_settings(app_id)
+    save_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    
+    if not os.path.exists(save_path):
+        return {
+            "has_file": False,
+            "filename": None,
+            "size": 0,
+            "version": settings["latest_version"]
+        }
+    
+    return {
+        "has_file": True,
+        "filename": "Client.dll",
+        "size": os.path.getsize(save_path),
+        "version": settings["latest_version"]
+    }
+
+
+@app.get("/api/client/info")
+def get_client_public_info(app_secret: str = Query(...)):
+    application = resolve_app(app_secret)
+    settings = get_app_settings(application["id"])
+    save_path = os.path.join(UPLOADS_DIR, f"{application['id']}_Client.dll")
+
+    if not os.path.exists(save_path):
+        return {
+            "status": "no_file",
+            "version": settings["latest_version"],
+            "size": 0
+        }
+
+    return {
+        "status": "ok",
+        "version": settings["latest_version"],
+        "size": os.path.getsize(save_path)
+    }
+
+
+@app.get("/api/client/download")
+def download_client_file(app_secret: str = Query(...)):
+    application = resolve_app(app_secret)
+    save_path = os.path.join(UPLOADS_DIR, f"{application['id']}_Client.dll")
+
+    if not os.path.exists(save_path):
+        raise HTTPException(status_code=404, detail="Client file not uploaded yet")
+
+    return FileResponse(save_path, filename="Client.dll", media_type="application/octet-stream")

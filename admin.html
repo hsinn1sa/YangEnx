@@ -442,6 +442,39 @@
         <div id="maintenance-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
       </div>
 
+      <!-- Client 檔案與版本管理 -->
+      <div class="panel">
+        <h2>Client 檔案與版本管理</h2>
+        <div style="margin-bottom:16px;">
+          <label>選擇應用程式</label>
+          <select id="upload-app-select" onchange="fetchClientFileInfo()"></select>
+        </div>
+        <div style="font-size:13px; color:var(--text-dim); margin-bottom:14px;">
+          在此上傳該應用程式注入用的 Client.dll 檔案，並設定對應的版本號。注入器開機時將自動向系統比對版本與容量。
+        </div>
+
+        <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:14px; margin-bottom:16px;">
+          <div style="font-size:12px; color:var(--cyan); font-weight:600; margin-bottom:6px;">目前已上傳檔案資訊</div>
+          <div id="current-file-info" style="font-size:13px; color:var(--text-dim);">載入中...</div>
+        </div>
+
+        <div class="form-grid" style="grid-template-columns: 1.5fr 1fr 1fr; margin-bottom:14px;">
+          <div>
+            <label>選擇 Client 檔案 (.dll / .exe)</label>
+            <input type="file" id="client-file-input" accept=".dll,.exe" style="width:100%;" />
+          </div>
+          <div>
+            <label>設定最新版本號</label>
+            <input id="client-version-input" placeholder="例如: v1.0.1" style="width:100%;" />
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button class="btn btn-gradient" style="width:100%; height:42px;" onclick="uploadClientFile()">上傳檔案並更新版本</button>
+          </div>
+        </div>
+        <div id="upload-error" style="color:var(--red); font-size:13px;"></div>
+        <div id="upload-success" style="color:var(--green); font-size:13px;"></div>
+      </div>
+
       <!-- 新增授權密鑰 -->
       <div class="panel">
         <h2>新增授權密鑰</h2>
@@ -662,6 +695,78 @@
       maintenanceSelect.value = prevMaintenance;
     } else if (allApps.length) {
       maintenanceSelect.value = allApps[0].id;
+    }
+
+    const uploadSelect = document.getElementById("upload-app-select");
+    const prevUpload = uploadSelect.value;
+    uploadSelect.innerHTML = allApps.length
+      ? options
+      : `<option value="">請先建立應用程式</option>`;
+    if (allApps.some(a => a.id === prevUpload)) {
+      uploadSelect.value = prevUpload;
+    } else if (allApps.length) {
+      uploadSelect.value = allApps[0].id;
+    }
+    fetchClientFileInfo();
+  }
+
+  async function fetchClientFileInfo() {
+    const appId = document.getElementById("upload-app-select").value;
+    const infoEl = document.getElementById("current-file-info");
+    if (!appId) { infoEl.textContent = "請先選擇應用程式"; return; }
+
+    try {
+      const info = await apiFetch(`/api/admin/apps/${appId}/client-info`);
+      if (info.has_file) {
+        const sizeMb = (info.size / (1024 * 1024)).toFixed(2);
+        infoEl.innerHTML = `檔案名稱: <b>${escapeHtml(info.filename)}</b> | 容量: <b>${info.size} 位元組 (${sizeMb} MB)</b> | 最新版本號: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b>`;
+        document.getElementById("client-version-input").value = info.version;
+      } else {
+        infoEl.innerHTML = `<span style="color:var(--amber);">尚未上傳 Client 檔案 (目前設定版本號: ${escapeHtml(info.version)})</span>`;
+        document.getElementById("client-version-input").value = info.version;
+      }
+    } catch (err) {
+      infoEl.textContent = "無法取得檔案資訊：" + err.message;
+    }
+  }
+
+  async function uploadClientFile() {
+    const errorEl = document.getElementById("upload-error");
+    const successEl = document.getElementById("upload-success");
+    errorEl.textContent = "";
+    successEl.textContent = "";
+
+    const appId = document.getElementById("upload-app-select").value;
+    const fileInput = document.getElementById("client-file-input");
+    const version = document.getElementById("client-version-input").value.trim();
+
+    if (!appId) { errorEl.textContent = "請先選擇應用程式"; return; }
+    if (!fileInput.files || fileInput.files.length === 0) { errorEl.textContent = "請選擇要上傳的 .dll 或 .exe 檔案"; return; }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append("file", file);
+    if (version) formData.append("version", version);
+
+    try {
+      const res = await fetch(API_BASE + `/api/admin/apps/${appId}/upload-client`, {
+        method: "POST",
+        headers: { "X-Admin-Token": adminToken },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text);
+      }
+
+      const data = await res.json();
+      successEl.textContent = `檔案 ${data.filename} 上傳成功！版本號已更新為 ${data.version}`;
+      fileInput.value = "";
+      fetchClientFileInfo();
+      fetchApplications();
+    } catch (err) {
+      errorEl.textContent = "上傳失敗：" + err.message;
     }
   }
 
