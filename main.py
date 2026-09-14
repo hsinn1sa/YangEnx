@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict
 
 from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Query, UploadFile, File, Form, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 from supabase import create_client, Client
 
@@ -591,7 +591,7 @@ def ensure_bucket_exists():
 
 
 # ------------------------------------------------------------------
-# 檔案上傳與版本更新 API (使用 Supabase Storage 儲存大型 Client.dll 檔案)
+# 檔案上傳與版本更新 API (採用 64KB 區塊串流寫入，極低記憶體佔用)
 # ------------------------------------------------------------------
 @app.post("/api/admin/apps/{app_id}/upload-client", dependencies=[Depends(require_admin)])
 async def upload_client_file(
@@ -601,36 +601,34 @@ async def upload_client_file(
 ):
     get_application_or_404(app_id)
 
-    content = await file.read()
-
     settings = get_app_settings(app_id)
     latest_version = version.strip() if version and version.strip() else settings["latest_version"]
     set_app_settings(app_id, settings["maintenance_mode"], settings["maintenance_message"], latest_version)
 
-    ensure_bucket_exists()
-
-    file_path = f"{app_id}/Client.dll"
-    try:
-        supabase.storage.from_(BUCKET_NAME).upload(
-            path=file_path,
-            file=content,
-            file_options={"upsert": "true", "content-type": "application/octet-stream"}
-        )
-    except Exception as e:
-        err_text = str(e)
-        if "not found" in err_text.lower() or "bucket" in err_text.lower():
-            raise HTTPException(status_code=400, detail="請至 Supabase Dashboard -> Storage 建立名為 'client-files' 的 Public Bucket！")
-        raise HTTPException(status_code=500, detail=f"上傳至 Supabase Storage 失敗：{e}")
-
-    # 本地快取
+    # 1. 採用 64KB 區塊分段串流寫入，記憶體佔用極限只有 64KB，徹底防止 Render 記憶體爆掉 503
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    file_size = 0
     with open(local_path, "wb") as f:
-        f.write(content)
+        while chunk := await file.read(65536):
+            f.write(chunk)
+            file_size += len(chunk)
+
+    # 2. 同步寫入 Supabase Storage
+    ensure_bucket_exists()
+    try:
+        with open(local_path, "rb") as f:
+            supabase.storage.from_(BUCKET_NAME).upload(
+                path=f"{app_id}/Client.dll",
+                file=f,
+                file_options={"upsert": "true", "content-type": "application/octet-stream"}
+            )
+    except Exception as e:
+        print(f"[Storage Upload Warning] {e}")
 
     return {
         "ok": True,
         "filename": file.filename or "Client.dll",
-        "size": len(content),
+        "size": file_size,
         "version": latest_version
     }
 
@@ -641,20 +639,20 @@ def get_client_file_info(app_id: str):
     settings = get_app_settings(app_id)
 
     size = 0
-    try:
-        res = supabase.storage.from_(BUCKET_NAME).list(app_id)
-        if res:
-            for item in res:
-                if item.get("name") == "Client.dll":
-                    size = item.get("metadata", {}).get("size", 0) or item.get("size", 0)
-                    break
-    except Exception:
-        pass
+    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    if os.path.exists(local_path):
+        size = os.path.getsize(local_path)
 
     if size == 0:
-        local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-        if os.path.exists(local_path):
-            size = os.path.getsize(local_path)
+        try:
+            res = supabase.storage.from_(BUCKET_NAME).list(app_id)
+            if res:
+                for item in res:
+                    if item.get("name") == "Client.dll":
+                        size = item.get("metadata", {}).get("size", 0) or item.get("size", 0)
+                        break
+        except Exception:
+            pass
 
     if size == 0:
         return {
@@ -679,20 +677,20 @@ def get_client_public_info(app_secret: str = Query(...)):
     settings = get_app_settings(app_id)
 
     size = 0
-    try:
-        res = supabase.storage.from_(BUCKET_NAME).list(app_id)
-        if res:
-            for item in res:
-                if item.get("name") == "Client.dll":
-                    size = item.get("metadata", {}).get("size", 0) or item.get("size", 0)
-                    break
-    except Exception:
-        pass
+    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    if os.path.exists(local_path):
+        size = os.path.getsize(local_path)
 
     if size == 0:
-        local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-        if os.path.exists(local_path):
-            size = os.path.getsize(local_path)
+        try:
+            res = supabase.storage.from_(BUCKET_NAME).list(app_id)
+            if res:
+                for item in res:
+                    if item.get("name") == "Client.dll":
+                        size = item.get("metadata", {}).get("size", 0) or item.get("size", 0)
+                        break
+        except Exception:
+            pass
 
     if size == 0:
         return {
@@ -712,11 +710,15 @@ def get_client_public_info(app_secret: str = Query(...)):
 def download_client_file(app_secret: str = Query(...)):
     application = resolve_app(app_secret)
     app_id = application["id"]
-    file_path = f"{app_id}/Client.dll"
+    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
 
-    # 1. 從 Supabase Storage 下載
+    # 1. 優先本地串流回傳
+    if os.path.exists(local_path):
+        return FileResponse(local_path, filename="Client.dll", media_type="application/octet-stream")
+
+    # 2. 從 Supabase Storage 讀取
     try:
-        data = supabase.storage.from_(BUCKET_NAME).download(file_path)
+        data = supabase.storage.from_(BUCKET_NAME).download(f"{app_id}/Client.dll")
         if data:
             return Response(
                 content=data,
@@ -725,10 +727,5 @@ def download_client_file(app_secret: str = Query(...)):
             )
     except Exception:
         pass
-
-    # 2. 本地快取備用
-    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-    if os.path.exists(local_path):
-        return FileResponse(local_path, filename="Client.dll", media_type="application/octet-stream")
 
     raise HTTPException(status_code=404, detail="Client file not uploaded yet")
