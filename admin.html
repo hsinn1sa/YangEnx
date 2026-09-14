@@ -733,6 +733,8 @@
   async function uploadClientFile() {
     const errorEl = document.getElementById("upload-error");
     const successEl = document.getElementById("upload-success");
+    const btn = document.querySelector("button[onclick='uploadClientFile()']");
+    
     errorEl.textContent = "";
     successEl.textContent = "";
 
@@ -748,6 +750,16 @@
     formData.append("file", file);
     if (version) formData.append("version", version);
 
+    // 顯示上傳中狀態與停用按鈕
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "上傳中，請稍候...";
+      btn.style.opacity = "0.6";
+    }
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+    successEl.style.color = "var(--cyan)";
+    successEl.textContent = `正在上傳檔案 (${sizeMb} MB) 至伺服器，請耐心等待...`;
+
     try {
       const res = await fetch(API_BASE + `/api/admin/apps/${appId}/upload-client`, {
         method: "POST",
@@ -757,16 +769,29 @@
 
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text);
+        let detail = text;
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed && parsed.detail) detail = parsed.detail;
+        } catch (e) {}
+        throw new Error(detail);
       }
 
       const data = await res.json();
-      successEl.textContent = `檔案 ${data.filename} 上傳成功！版本號已更新為 ${data.version}`;
+      successEl.style.color = "var(--green)";
+      successEl.textContent = `檔案 ${data.filename} 上傳成功！最新版本號已更新為 ${data.version}`;
       fileInput.value = "";
       fetchClientFileInfo();
       fetchApplications();
     } catch (err) {
       errorEl.textContent = "上傳失敗：" + err.message;
+      successEl.textContent = "";
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "上傳檔案並更新版本";
+        btn.style.opacity = "1";
+      }
     }
   }
 
