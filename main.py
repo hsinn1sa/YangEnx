@@ -20,6 +20,7 @@
   PUT  /api/admin/settings       -> 管理員切換某應用程式的維護模式，開啟時只會踢掉該應用程式的線上使用者
 """
 
+import base64
 import os
 import secrets
 import string
@@ -27,7 +28,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, Dict
 
-from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Query, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Query, UploadFile, File, Form, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from supabase import create_client, Client
@@ -577,7 +578,7 @@ async def update_settings(req: MaintenanceSettingsRequest):
 
 
 # ------------------------------------------------------------------
-# 檔案上傳與版本更新 API (Client.dll 管理)
+# 檔案上傳與版本更新 API (Client.dll 永久儲存至 Supabase 資料庫)
 # ------------------------------------------------------------------
 @app.post("/api/admin/apps/{app_id}/upload-client", dependencies=[Depends(require_admin)])
 async def upload_client_file(
@@ -586,19 +587,35 @@ async def upload_client_file(
     version: Optional[str] = Form(None)
 ):
     get_application_or_404(app_id)
-    save_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
 
     content = await file.read()
-    with open(save_path, "wb") as f:
-        f.write(content)
+    base64_data = base64.b64encode(content).decode("ascii")
 
     settings = get_app_settings(app_id)
     latest_version = version.strip() if version and version.strip() else settings["latest_version"]
     set_app_settings(app_id, settings["maintenance_mode"], settings["maintenance_message"], latest_version)
 
+    # 1. 寫入 Supabase 資料庫 app_files 表 (永久儲存)
+    try:
+        supabase.table("app_files").upsert({
+            "app_id": app_id,
+            "filename": file.filename or "Client.dll",
+            "file_data": base64_data,
+            "file_size": len(content),
+            "version": latest_version,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"儲存至 Supabase 資料庫失敗：{e}")
+
+    # 2. 同時寫入本地快取
+    save_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    with open(save_path, "wb") as f:
+        f.write(content)
+
     return {
         "ok": True,
-        "filename": file.filename,
+        "filename": file.filename or "Client.dll",
         "size": len(content),
         "version": latest_version
     }
@@ -608,20 +625,35 @@ async def upload_client_file(
 def get_client_file_info(app_id: str):
     get_application_or_404(app_id)
     settings = get_app_settings(app_id)
+
+    # 先從 Supabase 資料庫查詢
+    try:
+        res = supabase.table("app_files").select("filename, file_size, version").eq("app_id", app_id).execute()
+        if res.data:
+            row = res.data[0]
+            return {
+                "has_file": True,
+                "filename": row["filename"],
+                "size": row["file_size"],
+                "version": row["version"]
+            }
+    except Exception:
+        pass
+
+    # 本地快取查詢
     save_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-    
-    if not os.path.exists(save_path):
+    if os.path.exists(save_path):
         return {
-            "has_file": False,
-            "filename": None,
-            "size": 0,
+            "has_file": True,
+            "filename": "Client.dll",
+            "size": os.path.getsize(save_path),
             "version": settings["latest_version"]
         }
-    
+
     return {
-        "has_file": True,
-        "filename": "Client.dll",
-        "size": os.path.getsize(save_path),
+        "has_file": False,
+        "filename": None,
+        "size": 0,
         "version": settings["latest_version"]
     }
 
@@ -629,29 +661,61 @@ def get_client_file_info(app_id: str):
 @app.get("/api/client/info")
 def get_client_public_info(app_secret: str = Query(...)):
     application = resolve_app(app_secret)
-    settings = get_app_settings(application["id"])
-    save_path = os.path.join(UPLOADS_DIR, f"{application['id']}_Client.dll")
+    app_id = application["id"]
+    settings = get_app_settings(app_id)
 
-    if not os.path.exists(save_path):
+    # 先從 Supabase 資料庫查詢
+    try:
+        res = supabase.table("app_files").select("file_size, version").eq("app_id", app_id).execute()
+        if res.data:
+            row = res.data[0]
+            return {
+                "status": "ok",
+                "version": row["version"],
+                "size": row["file_size"]
+            }
+    except Exception:
+        pass
+
+    # 本地快取查詢
+    save_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    if os.path.exists(save_path):
         return {
-            "status": "no_file",
+            "status": "ok",
             "version": settings["latest_version"],
-            "size": 0
+            "size": os.path.getsize(save_path)
         }
 
     return {
-        "status": "ok",
+        "status": "no_file",
         "version": settings["latest_version"],
-        "size": os.path.getsize(save_path)
+        "size": 0
     }
 
 
 @app.get("/api/client/download")
 def download_client_file(app_secret: str = Query(...)):
     application = resolve_app(app_secret)
-    save_path = os.path.join(UPLOADS_DIR, f"{application['id']}_Client.dll")
+    app_id = application["id"]
 
-    if not os.path.exists(save_path):
-        raise HTTPException(status_code=404, detail="Client file not uploaded yet")
+    # 1. 先從 Supabase 資料庫讀取並串流回傳
+    try:
+        res = supabase.table("app_files").select("filename, file_data").eq("app_id", app_id).execute()
+        if res.data:
+            row = res.data[0]
+            content = base64.b64decode(row["file_data"])
+            filename = row.get("filename") or "Client.dll"
+            return Response(
+                content=content,
+                media_type="application/octet-stream",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+            )
+    except Exception:
+        pass
 
-    return FileResponse(save_path, filename="Client.dll", media_type="application/octet-stream")
+    # 2. 若資料庫尚無記錄，改由本地快取回傳
+    save_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    if os.path.exists(save_path):
+        return FileResponse(save_path, filename="Client.dll", media_type="application/octet-stream")
+
+    raise HTTPException(status_code=404, detail="Client file not uploaded yet")

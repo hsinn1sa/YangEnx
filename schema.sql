@@ -27,7 +27,7 @@ CREATE TABLE system_logs (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 系統全域設定 (例如你截圖中的「暫停所有用戶連線」開關)
+-- 系統全域設定
 CREATE TABLE system_settings (
     key         TEXT PRIMARY KEY,
     value       TEXT NOT NULL,
@@ -38,3 +38,13 @@ INSERT INTO system_settings (key, value) VALUES
     ('maintenance_mode', 'false'),
     ('maintenance_message', '卡密網站維護中，請稍後再試。'),
     ('current_version', '1.0.0');
+
+-- Client 檔案儲存表 (將 Client.dll 直接永久存入 Supabase 資料庫)
+CREATE TABLE IF NOT EXISTS app_files (
+    app_id        TEXT PRIMARY KEY,
+    filename      TEXT NOT NULL,
+    file_data     TEXT NOT NULL,
+    file_size     BIGINT NOT NULL,
+    version       TEXT NOT NULL,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
