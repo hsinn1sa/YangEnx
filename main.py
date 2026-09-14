@@ -577,8 +577,21 @@ async def update_settings(req: MaintenanceSettingsRequest):
     return {"ok": True}
 
 
+BUCKET_NAME = "client-files"
+
+
+def ensure_bucket_exists():
+    try:
+        buckets = supabase.storage.list_buckets()
+        exists = any(b.name == BUCKET_NAME for b in buckets)
+        if not exists:
+            supabase.storage.create_bucket(BUCKET_NAME, options={"public": True})
+    except Exception:
+        pass
+
+
 # ------------------------------------------------------------------
-# 檔案上傳與版本更新 API (Client.dll 永久儲存至 Supabase 資料庫)
+# 檔案上傳與版本更新 API (使用 Supabase Storage 儲存大型 Client.dll 檔案)
 # ------------------------------------------------------------------
 @app.post("/api/admin/apps/{app_id}/upload-client", dependencies=[Depends(require_admin)])
 async def upload_client_file(
@@ -589,28 +602,29 @@ async def upload_client_file(
     get_application_or_404(app_id)
 
     content = await file.read()
-    base64_data = base64.b64encode(content).decode("ascii")
 
     settings = get_app_settings(app_id)
     latest_version = version.strip() if version and version.strip() else settings["latest_version"]
     set_app_settings(app_id, settings["maintenance_mode"], settings["maintenance_message"], latest_version)
 
-    # 1. 寫入 Supabase 資料庫 app_files 表 (永久儲存)
-    try:
-        supabase.table("app_files").upsert({
-            "app_id": app_id,
-            "filename": file.filename or "Client.dll",
-            "file_data": base64_data,
-            "file_size": len(content),
-            "version": latest_version,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"儲存至 Supabase 資料庫失敗：{e}")
+    ensure_bucket_exists()
 
-    # 2. 同時寫入本地快取
-    save_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-    with open(save_path, "wb") as f:
+    file_path = f"{app_id}/Client.dll"
+    try:
+        supabase.storage.from_(BUCKET_NAME).upload(
+            path=file_path,
+            file=content,
+            file_options={"upsert": "true", "content-type": "application/octet-stream"}
+        )
+    except Exception as e:
+        err_text = str(e)
+        if "not found" in err_text.lower() or "bucket" in err_text.lower():
+            raise HTTPException(status_code=400, detail="請至 Supabase Dashboard -> Storage 建立名為 'client-files' 的 Public Bucket！")
+        raise HTTPException(status_code=500, detail=f"上傳至 Supabase Storage 失敗：{e}")
+
+    # 本地快取
+    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    with open(local_path, "wb") as f:
         f.write(content)
 
     return {
@@ -626,34 +640,34 @@ def get_client_file_info(app_id: str):
     get_application_or_404(app_id)
     settings = get_app_settings(app_id)
 
-    # 先從 Supabase 資料庫查詢
+    size = 0
     try:
-        res = supabase.table("app_files").select("filename, file_size, version").eq("app_id", app_id).execute()
-        if res.data:
-            row = res.data[0]
-            return {
-                "has_file": True,
-                "filename": row["filename"],
-                "size": row["file_size"],
-                "version": row["version"]
-            }
+        res = supabase.storage.from_(BUCKET_NAME).list(app_id)
+        if res:
+            for item in res:
+                if item.get("name") == "Client.dll":
+                    size = item.get("metadata", {}).get("size", 0) or item.get("size", 0)
+                    break
     except Exception:
         pass
 
-    # 本地快取查詢
-    save_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-    if os.path.exists(save_path):
+    if size == 0:
+        local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+        if os.path.exists(local_path):
+            size = os.path.getsize(local_path)
+
+    if size == 0:
         return {
-            "has_file": True,
-            "filename": "Client.dll",
-            "size": os.path.getsize(save_path),
+            "has_file": False,
+            "filename": None,
+            "size": 0,
             "version": settings["latest_version"]
         }
 
     return {
-        "has_file": False,
-        "filename": None,
-        "size": 0,
+        "has_file": True,
+        "filename": "Client.dll",
+        "size": size,
         "version": settings["latest_version"]
     }
 
@@ -664,32 +678,33 @@ def get_client_public_info(app_secret: str = Query(...)):
     app_id = application["id"]
     settings = get_app_settings(app_id)
 
-    # 先從 Supabase 資料庫查詢
+    size = 0
     try:
-        res = supabase.table("app_files").select("file_size, version").eq("app_id", app_id).execute()
-        if res.data:
-            row = res.data[0]
-            return {
-                "status": "ok",
-                "version": row["version"],
-                "size": row["file_size"]
-            }
+        res = supabase.storage.from_(BUCKET_NAME).list(app_id)
+        if res:
+            for item in res:
+                if item.get("name") == "Client.dll":
+                    size = item.get("metadata", {}).get("size", 0) or item.get("size", 0)
+                    break
     except Exception:
         pass
 
-    # 本地快取查詢
-    save_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-    if os.path.exists(save_path):
+    if size == 0:
+        local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+        if os.path.exists(local_path):
+            size = os.path.getsize(local_path)
+
+    if size == 0:
         return {
-            "status": "ok",
+            "status": "no_file",
             "version": settings["latest_version"],
-            "size": os.path.getsize(save_path)
+            "size": 0
         }
 
     return {
-        "status": "no_file",
+        "status": "ok",
         "version": settings["latest_version"],
-        "size": 0
+        "size": size
     }
 
 
@@ -697,25 +712,23 @@ def get_client_public_info(app_secret: str = Query(...)):
 def download_client_file(app_secret: str = Query(...)):
     application = resolve_app(app_secret)
     app_id = application["id"]
+    file_path = f"{app_id}/Client.dll"
 
-    # 1. 先從 Supabase 資料庫讀取並串流回傳
+    # 1. 從 Supabase Storage 下載
     try:
-        res = supabase.table("app_files").select("filename, file_data").eq("app_id", app_id).execute()
-        if res.data:
-            row = res.data[0]
-            content = base64.b64decode(row["file_data"])
-            filename = row.get("filename") or "Client.dll"
+        data = supabase.storage.from_(BUCKET_NAME).download(file_path)
+        if data:
             return Response(
-                content=content,
+                content=data,
                 media_type="application/octet-stream",
-                headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+                headers={"Content-Disposition": 'attachment; filename="Client.dll"'}
             )
     except Exception:
         pass
 
-    # 2. 若資料庫尚無記錄，改由本地快取回傳
-    save_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-    if os.path.exists(save_path):
-        return FileResponse(save_path, filename="Client.dll", media_type="application/octet-stream")
+    # 2. 本地快取備用
+    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    if os.path.exists(local_path):
+        return FileResponse(local_path, filename="Client.dll", media_type="application/octet-stream")
 
     raise HTTPException(status_code=404, detail="Client file not uploaded yet")

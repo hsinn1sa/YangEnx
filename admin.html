@@ -781,6 +781,7 @@
       successEl.style.color = "var(--green)";
       successEl.textContent = `檔案 ${data.filename} 上傳成功！最新版本號已更新為 ${data.version}`;
       fileInput.value = "";
+      alert(`🎉 檔案 ${data.filename} 已成功上傳至 Supabase 資料庫！\n最新版本號已更新為 ${data.version}`);
       fetchClientFileInfo();
       fetchApplications();
     } catch (err) {
