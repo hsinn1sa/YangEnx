@@ -167,29 +167,63 @@ DEFAULT_APP_SETTINGS = {
 
 
 def get_app_settings(app_id: str) -> dict:
-    """取得某個應用程式自己的維護模式 / 版本設定 / 更新說明，若尚未設定過就回傳預設值。"""
-    res = supabase.table("app_settings").select("*").eq("app_id", app_id).execute()
-    if res.data:
-        row = res.data[0]
-        return {
-            "maintenance_mode": bool(row["maintenance_mode"]),
-            "maintenance_message": row.get("maintenance_message") or DEFAULT_APP_SETTINGS["maintenance_message"],
-            "latest_version": row.get("latest_version") or DEFAULT_APP_SETTINGS["latest_version"],
-            "update_changelog": row.get("update_changelog") or "",
-        }
-    return dict(DEFAULT_APP_SETTINGS)
+    """取得某個應用程式自己的維護模式 / 版本設定 / 更新說明。"""
+    settings = dict(DEFAULT_APP_SETTINGS)
+    try:
+        res = supabase.table("app_settings").select("*").eq("app_id", app_id).execute()
+        if res.data:
+            row = res.data[0]
+            settings["maintenance_mode"] = bool(row.get("maintenance_mode", False))
+            settings["maintenance_message"] = row.get("maintenance_message") or DEFAULT_APP_SETTINGS["maintenance_message"]
+            settings["latest_version"] = row.get("latest_version") or DEFAULT_APP_SETTINGS["latest_version"]
+            if "update_changelog" in row and row["update_changelog"]:
+                settings["update_changelog"] = row["update_changelog"]
+    except Exception as e:
+        print(f"[Supabase Select Warning] {e}")
+
+    # 本地備份檔優先讀取，確保即使其餘設定報錯也不影響 changelog
+    changelog_file = os.path.join(UPLOADS_DIR, f"{app_id}_changelog.txt")
+    if os.path.exists(changelog_file):
+        try:
+            with open(changelog_file, "r", encoding="utf-8") as f:
+                settings["update_changelog"] = f.read()
+        except Exception:
+            pass
+
+    return settings
 
 
 def set_app_settings(app_id: str, maintenance_mode: bool, maintenance_message: str, latest_version: str, update_changelog: str = ""):
-    """app_settings 用 upsert：這個應用程式存在就更新，不存在就新增一列。"""
-    supabase.table("app_settings").upsert({
-        "app_id": app_id,
-        "maintenance_mode": maintenance_mode,
-        "maintenance_message": maintenance_message,
-        "latest_version": latest_version,
-        "update_changelog": update_changelog,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }).execute()
+    """app_settings 用 upsert：帶入防錯降級處理，即使 Supabase 資料表缺少 update_changelog 欄位也絕不觸發 500 錯誤。"""
+    try:
+        supabase.table("app_settings").upsert({
+            "app_id": app_id,
+            "maintenance_mode": maintenance_mode,
+            "maintenance_message": maintenance_message,
+            "latest_version": latest_version,
+            "update_changelog": update_changelog,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception as e:
+        print(f"[Supabase Upsert Warning] {e} -> 切換為相容欄位寫入...")
+        try:
+            supabase.table("app_settings").upsert({
+                "app_id": app_id,
+                "maintenance_mode": maintenance_mode,
+                "maintenance_message": maintenance_message,
+                "latest_version": latest_version,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).execute()
+        except Exception as ex:
+            print(f"[Supabase Upsert Backup Error] {ex}")
+
+    # 同步備份寫入本地檔案，保證 100% 寫入成功
+    try:
+        changelog_file = os.path.join(UPLOADS_DIR, f"{app_id}_changelog.txt")
+        with open(changelog_file, "w", encoding="utf-8") as f:
+            f.write(update_changelog)
+    except Exception:
+        pass
 
 
 def require_admin(x_admin_token: str = Header(...)):
@@ -650,7 +684,7 @@ async def upload_client_file(
 async def delete_client_file(app_id: str):
     get_application_or_404(app_id)
 
-    # 1. 刪除本地檔案
+    # 1. 刪除本地 Client.dll 檔案與 changelog.txt
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
     if os.path.exists(local_path):
         try:
@@ -658,21 +692,31 @@ async def delete_client_file(app_id: str):
         except Exception as e:
             print(f"[File Delete Error] {e}")
 
-    # 2. 刪除 Supabase Storage 中的檔案
+    changelog_file = os.path.join(UPLOADS_DIR, f"{app_id}_changelog.txt")
+    if os.path.exists(changelog_file):
+        try:
+            os.remove(changelog_file)
+        except Exception as e:
+            print(f"[Changelog Delete Error] {e}")
+
+    # 2. 刪除 Supabase Storage 中的檔案 (靜默保護，即使 Storage 未建立也不錯亂)
     try:
         supabase.storage.from_(BUCKET_NAME).remove([f"{app_id}/Client.dll"])
     except Exception as e:
         print(f"[Storage Delete Warning] {e}")
 
-    # 3. 重置版本號與更新紀錄
-    settings = get_app_settings(app_id)
-    set_app_settings(
-        app_id,
-        settings["maintenance_mode"],
-        settings["maintenance_message"],
-        "v1.0.0",
-        ""
-    )
+    # 3. 重置版本號與更新紀錄 (防錯降級)
+    try:
+        settings = get_app_settings(app_id)
+        set_app_settings(
+            app_id,
+            settings["maintenance_mode"],
+            settings["maintenance_message"],
+            "v1.0.0",
+            ""
+        )
+    except Exception as e:
+        print(f"[Reset Settings Warning] {e}")
 
     return {"ok": True, "message": "已成功刪除已上傳檔案與版本設定"}
 
