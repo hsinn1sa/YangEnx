@@ -66,7 +66,7 @@
   }
 
   /* ---------------- Shared form controls ---------------- */
-  input, select {
+  input, select, textarea {
     background: #0d0d14;
     border: 1px solid var(--panel-border);
     border-radius: 6px;
@@ -74,9 +74,23 @@
     padding: 10px 12px;
     font-size: 14px;
     outline: none;
+    color-scheme: dark;
   }
-  input:focus, select:focus { border-color: var(--cyan); }
-  input::placeholder { color: #4d4d5e; }
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover, 
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus,
+  select:-webkit-autofill,
+  select:-webkit-autofill:hover,
+  select:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text) !important;
+    -webkit-box-shadow: 0 0 0px 1000px #0d0d14 inset !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
+  input::placeholder, textarea::placeholder { color: #4d4d5e; }
   label {
     display: block;
     font-size: 12px;
@@ -314,11 +328,16 @@
       gap: 12px !important;
     }
 
-    /* 到期日快速按鈕 3 欄自動換行，防止超界壓縮 */
+    /* 到期日快速按鈕 5 欄 (手機小螢幕轉 3 欄)，完美對齊 */
     .expiry-quick {
       display: grid !important;
-      grid-template-columns: repeat(3, 1fr) !important;
+      grid-template-columns: repeat(5, 1fr) !important;
       gap: 6px !important;
+    }
+    @media (max-width: 480px) {
+      .expiry-quick {
+        grid-template-columns: repeat(3, 1fr) !important;
+      }
     }
     .expiry-quick button {
       padding: 8px 4px !important;
@@ -401,6 +420,29 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
     }
     tbody tr:hover { background: #14141d !important; }
+
+    /* 手機版「沒有符合的密鑰」無卡片化居中極致修正 */
+    tbody tr.empty-row {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    tbody tr.empty-row td {
+      display: block !important;
+      width: 100% !important;
+      text-align: center !important;
+      justify-content: center !important;
+      border-bottom: none !important;
+      padding: 30px 0 !important;
+      color: var(--text-dim) !important;
+    }
+    tbody tr.empty-row td::before {
+      display: none !important;
+      content: "" !important;
+    }
+
     tbody td {
       display: flex !important;
       justify-content: space-between !important;
@@ -601,9 +643,11 @@
             <label>到期日 EXPIRY</label>
             <input id="new-expiry" type="datetime-local" />
             <div class="expiry-quick">
-              <button class="btn btn-ghost btn-sm" onclick="setExpiry(7)">7天</button>
-              <button class="btn btn-ghost btn-sm" onclick="setExpiry(30)">30天</button>
-              <button class="btn btn-ghost btn-sm" onclick="setExpiry(9999)">永久</button>
+              <button class="btn btn-ghost btn-sm" type="button" onclick="setExpiry(1)">1天</button>
+              <button class="btn btn-ghost btn-sm" type="button" onclick="setExpiry(7)">7天</button>
+              <button class="btn btn-ghost btn-sm" type="button" onclick="setExpiry(30)">30天</button>
+              <button class="btn btn-ghost btn-sm" type="button" onclick="setExpiry(365)">365天</button>
+              <button class="btn btn-ghost btn-sm" type="button" onclick="setExpiry(9999)">永久</button>
             </div>
           </div>
         </div>
@@ -942,15 +986,35 @@
     xhr.send(formData);
   }
 
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    if (!t) return;
+    t.textContent = msg;
+    t.style.display = "block";
+    t.style.opacity = "1";
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(() => {
+      t.style.opacity = "0";
+      setTimeout(() => { t.style.display = "none"; }, 300);
+    }, 2200);
+  }
+
+  function copySnippet(name, ownerId, secret) {
+    const code = `YangEnxApi.Init(\n    appName: "${name}",\n    ownerId: "${ownerId}",\n    appSecret: "${secret}",\n    version: Program.Version\n);`;
+    copyToClipboard(code, false);
+    showToast("📋 已複製 C# 初始化程式碼！");
+  }
+
   function toggleSecret(appId) {
     if (visibleSecrets.has(appId)) visibleSecrets.delete(appId);
     else visibleSecrets.add(appId);
     renderApplications();
   }
 
-  async function copyToClipboard(text) {
+  async function copyToClipboard(text, notify = true) {
     try {
       await navigator.clipboard.writeText(text);
+      if (notify) showToast("📋 已成功複製至剪貼簿！");
     } catch (err) {
       // 部分瀏覽器/非 HTTPS 環境下 clipboard API 可能無法使用，靜默失敗即可
     }
@@ -1063,7 +1127,12 @@
       return `
         <tr>
           <td data-label="ID">${k.id}</td>
-          <td class="key-cell" data-label="密鑰">${k.license_key}</td>
+          <td class="key-cell" data-label="密鑰">
+            <div style="display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+              <span style="user-select:all;">${k.license_key}</span>
+              <button class="icon-btn" title="複製密鑰" onclick="copyToClipboard('${k.license_key}')">📋</button>
+            </div>
+          </td>
           <td data-label="應用程式">${escapeHtml(appName)}</td>
           <td data-label="用戶名">${escapeHtml(k.username)}</td>
           <td data-label="裝置"><span class="hwid-tag">${hwidText}</span></td>
@@ -1134,6 +1203,7 @@
       document.getElementById("new-max-devices").value = "1";
       document.getElementById("new-expiry").value = "";
       fetchKeys();
+      showToast("🎉 成功新增卡密！");
     } catch (err) {
       errorEl.textContent = "新增失敗：" + err.message;
     }
@@ -1215,7 +1285,7 @@
                 latest_version: version
             }),
         });
-        alert("設定已儲存！");
+        showToast("⚙️ 設定已成功儲存！");
         fetchKeys();
     } catch (err) {
         errorEl.textContent = "儲存失敗：" + err.message;
@@ -1232,5 +1302,8 @@
     if (adminToken) fetchKeys();
   }, 10000);
 </script>
+
+<!-- Toast 提示訊息框 -->
+<div id="toast" style="position:fixed; bottom:24px; right:24px; background:#111118; border:1px solid var(--cyan); color:var(--text); padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,0.5); display:none; z-index:9999; transition:all 0.3s ease;"></div>
 </body>
 </html>
