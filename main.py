@@ -162,29 +162,32 @@ DEFAULT_APP_SETTINGS = {
     "maintenance_mode": False,
     "maintenance_message": "卡密系統維護中",
     "latest_version": "v1.0.0",
+    "update_changelog": "",
 }
 
 
 def get_app_settings(app_id: str) -> dict:
-    """取得某個應用程式自己的維護模式 / 版本設定，若尚未設定過就回傳預設值。"""
+    """取得某個應用程式自己的維護模式 / 版本設定 / 更新說明，若尚未設定過就回傳預設值。"""
     res = supabase.table("app_settings").select("*").eq("app_id", app_id).execute()
     if res.data:
         row = res.data[0]
         return {
             "maintenance_mode": bool(row["maintenance_mode"]),
-            "maintenance_message": row["maintenance_message"] or DEFAULT_APP_SETTINGS["maintenance_message"],
-            "latest_version": row["latest_version"] or DEFAULT_APP_SETTINGS["latest_version"],
+            "maintenance_message": row.get("maintenance_message") or DEFAULT_APP_SETTINGS["maintenance_message"],
+            "latest_version": row.get("latest_version") or DEFAULT_APP_SETTINGS["latest_version"],
+            "update_changelog": row.get("update_changelog") or "",
         }
     return dict(DEFAULT_APP_SETTINGS)
 
 
-def set_app_settings(app_id: str, maintenance_mode: bool, maintenance_message: str, latest_version: str):
+def set_app_settings(app_id: str, maintenance_mode: bool, maintenance_message: str, latest_version: str, update_changelog: str = ""):
     """app_settings 用 upsert：這個應用程式存在就更新，不存在就新增一列。"""
     supabase.table("app_settings").upsert({
         "app_id": app_id,
         "maintenance_mode": maintenance_mode,
         "maintenance_message": maintenance_message,
         "latest_version": latest_version,
+        "update_changelog": update_changelog,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }).execute()
 
@@ -591,19 +594,28 @@ def ensure_bucket_exists():
 
 
 # ------------------------------------------------------------------
-# 檔案上傳與版本更新 API (採用 64KB 區塊串流寫入，極低記憶體佔用)
+# 檔案上傳、刪除與版本更新 API (採用 64KB 區塊串流寫入，極低記憶體佔用)
 # ------------------------------------------------------------------
 @app.post("/api/admin/apps/{app_id}/upload-client", dependencies=[Depends(require_admin)])
 async def upload_client_file(
     app_id: str,
     file: UploadFile = File(...),
-    version: Optional[str] = Form(None)
+    version: Optional[str] = Form(None),
+    changelog: Optional[str] = Form(None)
 ):
     get_application_or_404(app_id)
 
     settings = get_app_settings(app_id)
     latest_version = version.strip() if version and version.strip() else settings["latest_version"]
-    set_app_settings(app_id, settings["maintenance_mode"], settings["maintenance_message"], latest_version)
+    update_changelog = changelog.strip() if changelog is not None else settings.get("update_changelog", "")
+
+    set_app_settings(
+        app_id,
+        settings["maintenance_mode"],
+        settings["maintenance_message"],
+        latest_version,
+        update_changelog
+    )
 
     # 1. 採用 64KB 區塊分段串流寫入，記憶體佔用極限只有 64KB，徹底防止 Render 記憶體爆掉 503
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
@@ -629,8 +641,40 @@ async def upload_client_file(
         "ok": True,
         "filename": file.filename or "Client.dll",
         "size": file_size,
-        "version": latest_version
+        "version": latest_version,
+        "changelog": update_changelog
     }
+
+
+@app.delete("/api/admin/apps/{app_id}/delete-client", dependencies=[Depends(require_admin)])
+async def delete_client_file(app_id: str):
+    get_application_or_404(app_id)
+
+    # 1. 刪除本地檔案
+    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    if os.path.exists(local_path):
+        try:
+            os.remove(local_path)
+        except Exception as e:
+            print(f"[File Delete Error] {e}")
+
+    # 2. 刪除 Supabase Storage 中的檔案
+    try:
+        supabase.storage.from_(BUCKET_NAME).remove([f"{app_id}/Client.dll"])
+    except Exception as e:
+        print(f"[Storage Delete Warning] {e}")
+
+    # 3. 重置版本號與更新紀錄
+    settings = get_app_settings(app_id)
+    set_app_settings(
+        app_id,
+        settings["maintenance_mode"],
+        settings["maintenance_message"],
+        "v1.0.0",
+        ""
+    )
+
+    return {"ok": True, "message": "已成功刪除已上傳檔案與版本設定"}
 
 
 @app.get("/api/admin/apps/{app_id}/client-info", dependencies=[Depends(require_admin)])
@@ -659,14 +703,16 @@ def get_client_file_info(app_id: str):
             "has_file": False,
             "filename": None,
             "size": 0,
-            "version": settings["latest_version"]
+            "version": settings["latest_version"],
+            "changelog": settings.get("update_changelog", "")
         }
 
     return {
         "has_file": True,
         "filename": "Client.dll",
         "size": size,
-        "version": settings["latest_version"]
+        "version": settings["latest_version"],
+        "changelog": settings.get("update_changelog", "")
     }
 
 
@@ -696,13 +742,15 @@ def get_client_public_info(app_secret: str = Query(...)):
         return {
             "status": "no_file",
             "version": settings["latest_version"],
-            "size": 0
+            "size": 0,
+            "changelog": settings.get("update_changelog", "")
         }
 
     return {
         "status": "ok",
         "version": settings["latest_version"],
-        "size": size
+        "size": size,
+        "changelog": settings.get("update_changelog", "")
     }
 
 

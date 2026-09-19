@@ -281,77 +281,167 @@
   .current-app-tag b { color: var(--cyan); }
 
   /* ================================================================
-     手機版 RWD (螢幕寬度 <= 768px)
+     手機版 RWD 深度優化 (螢幕寬度 <= 768px)
      ================================================================ */
   @media (max-width: 768px) {
     header {
-      padding: 16px 18px;
-      margin-bottom: 18px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
     }
-    .logo { font-size: 17px; }
-    #logout-btn { padding: 7px 12px; font-size: 12px; }
+    .logo { font-size: 16px; }
+    #logout-btn { padding: 6px 12px; font-size: 12px; }
 
-    main { padding: 0 14px 40px; }
+    main { padding: 0 12px 36px; }
 
-    .login-box { width: calc(100vw - 40px); max-width: 360px; padding: 24px; }
+    .login-box { width: calc(100vw - 32px); max-width: 360px; padding: 20px; }
 
+    /* 統計卡片：手機版採雙欄排列，畫面更精簡精美 */
     .stats {
-      grid-template-columns: 1fr;
-      gap: 12px;
-      margin-bottom: 18px;
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 10px !important;
+      margin-bottom: 16px !important;
     }
-    .stat-card { padding: 14px 16px; }
-    .stat-value { font-size: 24px; }
+    .stat-card { padding: 12px 14px !important; }
+    .stat-label { font-size: 11px !important; }
+    .stat-value { font-size: 22px !important; }
 
-    .panel { padding: 16px; margin-bottom: 16px; }
-    .panel h2 { font-size: 15px; margin-bottom: 16px; }
+    .panel { padding: 16px !important; margin-bottom: 16px !important; border-radius: 10px !important; }
+    .panel h2 { font-size: 15px !important; margin-bottom: 14px !important; }
 
-    /* 表單改成單欄堆疊，不再左右擠壓 */
+    /* 表單單欄極致排版，避免邊界溢出 */
     .form-grid {
-      grid-template-columns: 1fr;
-      gap: 14px;
+      grid-template-columns: 1fr !important;
+      gap: 12px !important;
     }
 
-    .table-toolbar { justify-content: stretch; flex-direction: column; }
+    /* 到期日快速按鈕 3 欄自動換行，防止超界壓縮 */
+    .expiry-quick {
+      display: grid !important;
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 6px !important;
+    }
+    .expiry-quick button {
+      padding: 8px 4px !important;
+      font-size: 12px !important;
+    }
+
+    .key-input-row {
+      flex-direction: column !important;
+      gap: 6px !important;
+    }
+    .key-input-row .btn {
+      width: 100% !important;
+      height: 38px !important;
+    }
+
+    .table-toolbar {
+      justify-content: stretch !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+    }
     .table-toolbar select,
-    .table-toolbar input { width: 100%; }
+    .table-toolbar input {
+      width: 100% !important;
+      font-size: 13.5px !important;
+    }
 
-    .app-toolbar { flex-direction: column; align-items: stretch; }
-    .app-create-row { flex-direction: column; }
-    .app-create-row input { width: 100%; }
-    .app-grid { grid-template-columns: 1fr; }
+    .app-toolbar {
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 10px !important;
+    }
+    .app-create-row {
+      flex-direction: column !important;
+      gap: 8px !important;
+    }
+    .app-create-row input { width: 100% !important; }
+    .app-grid { grid-template-columns: 1fr !important; }
 
-    /* 表格在手機上改成卡片式排列，不用左右滑動 */
-    table, thead, tbody, th, td, tr { display: block; }
-    thead { display: none; }
+    /* 應用程式卡片 Secret 長字串手機版點擊自動換行 */
+    .app-field-value {
+      font-size: 11px !important;
+      padding: 6px 8px !important;
+      word-break: break-all !important;
+    }
+    .app-field-value .value-text {
+      white-space: normal !important;
+      word-break: break-all !important;
+    }
+    .app-card-actions {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 6px !important;
+    }
+    .app-card-actions .btn {
+      width: 100% !important;
+      text-align: center !important;
+    }
+
+    /* 已上傳 Client 檔案區域手機滿版設計 */
+    #current-file-info {
+      font-size: 12px !important;
+      line-height: 1.5 !important;
+    }
+    #delete-client-btn {
+      width: 100% !important;
+      margin-top: 8px !important;
+      padding: 8px 12px !important;
+      text-align: center !important;
+    }
+
+    /* 卡密列表：手機版轉換為高質感滑順獨立卡片 */
+    table, thead, tbody, th, td, tr { display: block !important; }
+    thead { display: none !important; }
     tbody tr {
-      background: #14141a;
-      border: 1px solid var(--panel-border);
-      border-radius: 8px;
-      margin-bottom: 12px;
-      padding: 4px 0;
+      background: #14141d !important;
+      border: 1px solid var(--panel-border) !important;
+      border-radius: 10px !important;
+      margin-bottom: 12px !important;
+      padding: 6px 0 !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
     }
-    tbody tr:hover { background: #14141a; }
+    tbody tr:hover { background: #14141d !important; }
     tbody td {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      border-bottom: 1px solid #1e1e28;
-      text-align: right;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      gap: 10px !important;
+      padding: 10px 14px !important;
+      border-bottom: 1px solid #1e1e2c !important;
+      text-align: right !important;
     }
-    tbody td:last-child { border-bottom: none; }
+    tbody td:last-child {
+      border-bottom: none !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 8px !important;
+      padding-top: 12px !important;
+    }
     tbody td::before {
-      content: attr(data-label);
-      color: var(--text-dim);
-      font-size: 11px;
-      font-weight: 600;
-      text-align: left;
-      flex-shrink: 0;
+      content: attr(data-label) !important;
+      color: var(--text-dim) !important;
+      font-size: 11px !important;
+      font-weight: 600 !important;
+      text-align: left !important;
+      flex-shrink: 0 !important;
     }
-    .action-group { justify-content: flex-end; }
-    .key-cell { word-break: break-all; text-align: right; }
+    .action-group {
+      display: flex !important;
+      width: 100% !important;
+      gap: 6px !important;
+    }
+    .action-group .btn {
+      flex: 1 !important;
+      padding: 9px 0 !important;
+      font-size: 12.5px !important;
+      text-align: center !important;
+    }
+    .key-cell {
+      font-size: 13px !important;
+      word-break: break-all !important;
+      text-align: right !important;
+      color: var(--purple) !important;
+    }
   }
 </style>
 </head>
@@ -450,15 +540,18 @@
           <select id="upload-app-select" onchange="fetchClientFileInfo()"></select>
         </div>
         <div style="font-size:13px; color:var(--text-dim); margin-bottom:14px;">
-          在此上傳該應用程式注入用的 Client.dll 檔案，並設定對應的版本號。注入器開機時將自動向系統比對版本與容量。
+          在此上傳該應用程式注入用的 Client.dll 檔案，設定對應的版本號與更新內容說明。注入器開機時將自動比對版本並提示更新內容。
         </div>
 
-        <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:14px; margin-bottom:16px;">
-          <div style="font-size:12px; color:var(--cyan); font-weight:600; margin-bottom:6px;">目前已上傳檔案資訊</div>
-          <div id="current-file-info" style="font-size:13px; color:var(--text-dim);">載入中...</div>
+        <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <div style="font-size:12px; color:var(--cyan); font-weight:600; margin-bottom:6px;">目前已上傳檔案與版本資訊</div>
+            <div id="current-file-info" style="font-size:13px; color:var(--text-dim);">載入中...</div>
+          </div>
+          <button id="delete-client-btn" class="btn btn-red btn-sm" onclick="deleteClientFile()" style="display:none;">🗑️ 刪除 Client 檔案與版本</button>
         </div>
 
-        <div class="form-grid" style="grid-template-columns: 1.5fr 1fr 1fr; margin-bottom:14px;">
+        <div class="form-grid" style="grid-template-columns: 1.5fr 1fr; margin-bottom:14px;">
           <div>
             <label>選擇 Client 檔案 (.dll / .exe)</label>
             <input type="file" id="client-file-input" accept=".dll,.exe" style="width:100%;" />
@@ -467,12 +560,18 @@
             <label>設定最新版本號</label>
             <input id="client-version-input" placeholder="例如: v1.0.1" style="width:100%;" />
           </div>
-          <div style="display:flex; align-items:flex-end;">
-            <button class="btn btn-gradient" style="width:100%; height:42px;" onclick="uploadClientFile()">上傳檔案並更新版本</button>
-          </div>
         </div>
-        <div id="upload-error" style="color:var(--red); font-size:13px;"></div>
-        <div id="upload-success" style="color:var(--green); font-size:13px;"></div>
+
+        <div style="margin-bottom:16px;">
+          <label>版本更新內容說明 (Changelog)</label>
+          <textarea id="client-changelog-input" rows="3" placeholder="例如: 1. 修復 ESP 閃爍&#10;2. 新增 EnemyPull 360 平滑與 Y 軸固定" style="width:100%; background:#0d0d14; border:1px solid var(--panel-border); border-radius:6px; color:var(--text); padding:10px; font-size:13px; outline:none; resize:vertical;"></textarea>
+        </div>
+
+        <div>
+          <button class="btn btn-gradient" style="width:100%; height:42px;" onclick="uploadClientFile()">上傳檔案並更新版本說明</button>
+        </div>
+        <div id="upload-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
+        <div id="upload-success" style="color:var(--green); font-size:13px; margin-top:10px;"></div>
       </div>
 
       <!-- 新增授權密鑰 -->
@@ -713,6 +812,9 @@
   async function fetchClientFileInfo() {
     const appId = document.getElementById("upload-app-select").value;
     const infoEl = document.getElementById("current-file-info");
+    const deleteBtn = document.getElementById("delete-client-btn");
+    const changelogInput = document.getElementById("client-changelog-input");
+
     if (!appId) { infoEl.textContent = "請先選擇應用程式"; return; }
 
     try {
@@ -721,12 +823,35 @@
         const sizeMb = (info.size / (1024 * 1024)).toFixed(2);
         infoEl.innerHTML = `檔案名稱: <b>${escapeHtml(info.filename)}</b> | 容量: <b>${info.size} 位元組 (${sizeMb} MB)</b> | 最新版本號: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b>`;
         document.getElementById("client-version-input").value = info.version;
+        if (changelogInput) changelogInput.value = info.changelog || "";
+        if (deleteBtn) deleteBtn.style.display = "inline-block";
       } else {
         infoEl.innerHTML = `<span style="color:var(--amber);">尚未上傳 Client 檔案 (目前設定版本號: ${escapeHtml(info.version)})</span>`;
         document.getElementById("client-version-input").value = info.version;
+        if (changelogInput) changelogInput.value = info.changelog || "";
+        if (deleteBtn) deleteBtn.style.display = "none";
       }
     } catch (err) {
       infoEl.textContent = "無法取得檔案資訊：" + err.message;
+      if (deleteBtn) deleteBtn.style.display = "none";
+    }
+  }
+
+  async function deleteClientFile() {
+    const appId = document.getElementById("upload-app-select").value;
+    if (!appId) return;
+
+    if (!confirm("確定要刪除已上傳的 Client 檔案與版本設定嗎？\n刪除後注入器將無法再下載此檔案。")) return;
+
+    try {
+      await apiFetch(`/api/admin/apps/${appId}/delete-client`, { method: "DELETE" });
+      document.getElementById("client-file-input").value = "";
+      document.getElementById("client-changelog-input").value = "";
+      alert("🎉 已成功刪除 Client 檔案與版本號！");
+      fetchClientFileInfo();
+      fetchApplications();
+    } catch (err) {
+      alert("刪除失敗：" + err.message);
     }
   }
 
@@ -741,6 +866,7 @@
     const appId = document.getElementById("upload-app-select").value;
     const fileInput = document.getElementById("client-file-input");
     const version = document.getElementById("client-version-input").value.trim();
+    const changelog = document.getElementById("client-changelog-input").value.trim();
 
     if (!appId) { errorEl.textContent = "請先選擇應用程式"; return; }
     if (!fileInput.files || fileInput.files.length === 0) { errorEl.textContent = "請選擇要上傳的 .dll 或 .exe 檔案"; return; }
@@ -749,6 +875,7 @@
     const formData = new FormData();
     formData.append("file", file);
     if (version) formData.append("version", version);
+    formData.append("changelog", changelog);
 
     if (btn) {
       btn.disabled = true;
@@ -797,7 +924,7 @@
 
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "上傳檔案並更新版本";
+        btn.textContent = "上傳檔案並更新版本說明";
         btn.style.opacity = "1";
       }
     };
@@ -807,7 +934,7 @@
       successEl.textContent = "";
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "上傳檔案並更新版本";
+        btn.textContent = "上傳檔案並更新版本說明";
         btn.style.opacity = "1";
       }
     };
