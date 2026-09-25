@@ -574,46 +574,88 @@
         <div id="maintenance-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
       </div>
 
-      <!-- YangEnx Internal.dll / Client 檔案與版本管理 -->
+      <!-- Client 檔案與版本管理 -->
       <div class="panel">
-        <h2>YangEnx Internal.dll / Client 檔案與版本管理</h2>
+        <h2>Client 檔案與版本管理 (Client.dll)</h2>
         <div style="margin-bottom:16px;">
           <label>選擇應用程式</label>
           <select id="upload-app-select" onchange="fetchClientFileInfo()"></select>
         </div>
         <div style="font-size:13px; color:var(--text-dim); margin-bottom:14px;">
-          在此上傳該應用程式注入用的 YangEnx Internal.dll (或 Client.dll) 檔案，設定對應的版本號與更新內容說明。注入器開機時將自動比對版本並提示更新內容。
+          在此上傳該應用程式對應的 Client.dll 檔案，設定對應的版本號與更新內容說明。
         </div>
 
         <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <div>
-            <div style="font-size:12px; color:var(--cyan); font-weight:600; margin-bottom:6px;">目前已上傳檔案與版本資訊</div>
+            <div style="font-size:12px; color:var(--cyan); font-weight:600; margin-bottom:6px;">目前 Client 已上傳檔案與版本資訊</div>
             <div id="current-file-info" style="font-size:13px; color:var(--text-dim);">載入中...</div>
           </div>
-          <button id="delete-client-btn" class="btn btn-red btn-sm" onclick="deleteClientFile()" style="display:none;">🗑️ 刪除已上傳檔案與版本</button>
+          <button id="delete-client-btn" class="btn btn-red btn-sm" onclick="deleteClientFile()" style="display:none;">🗑️ 刪除 Client 檔案與版本</button>
         </div>
 
         <div class="form-grid" style="grid-template-columns: 1.5fr 1fr; margin-bottom:14px;">
           <div>
-            <label>選擇 YangEnx Internal.dll 檔案 (.dll / .exe)</label>
+            <label>選擇 Client 檔案 (.dll / .exe)</label>
             <input type="file" id="client-file-input" accept=".dll,.exe" style="width:100%;" />
           </div>
           <div>
-            <label>設定最新版本號</label>
+            <label>設定 Client 最新版本號</label>
             <input id="client-version-input" placeholder="例如: v1.0.1" style="width:100%;" />
           </div>
         </div>
 
         <div style="margin-bottom:16px;">
-          <label>版本更新內容說明 (Changelog)</label>
-          <textarea id="client-changelog-input" rows="3" placeholder="例如: 1. 修復 ESP 閃爍&#10;2. 新增 EnemyPull 360 平滑與 Y 軸固定" style="width:100%; background:#0d0d14; border:1px solid var(--panel-border); border-radius:6px; color:var(--text); padding:10px; font-size:13px; outline:none; resize:vertical;"></textarea>
+          <label>Client 版本更新內容說明 (Changelog)</label>
+          <textarea id="client-changelog-input" rows="3" placeholder="例如: 1. 修復 Client 連線問題" style="width:100%; background:#0d0d14; border:1px solid var(--panel-border); border-radius:6px; color:var(--text); padding:10px; font-size:13px; outline:none; resize:vertical;"></textarea>
         </div>
 
         <div>
-          <button class="btn btn-gradient" style="width:100%; height:42px;" onclick="uploadClientFile()">上傳檔案並更新版本說明</button>
+          <button class="btn btn-gradient" style="width:100%; height:42px;" onclick="uploadClientFile()">上傳 Client 檔案並更新版本說明</button>
         </div>
         <div id="upload-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
         <div id="upload-success" style="color:var(--green); font-size:13px; margin-top:10px;"></div>
+      </div>
+
+      <!-- YangEnx Internal.dll 檔案與版本管理 (獨立分頁) -->
+      <div class="panel">
+        <h2>YangEnx Internal.dll 檔案與版本管理</h2>
+        <div style="margin-bottom:16px;">
+          <label>選擇應用程式</label>
+          <select id="upload-internal-app-select" onchange="fetchInternalFileInfo()"></select>
+        </div>
+        <div style="font-size:13px; color:var(--text-dim); margin-bottom:14px;">
+          在此上傳該應用程式注入用的 YangEnx Internal.dll 檔案，設定對應的版本號與更新內容說明。注入器開機時將自動比對版本並提示更新內容。
+        </div>
+
+        <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <div style="font-size:12px; color:var(--cyan); font-weight:600; margin-bottom:6px;">目前 YangEnx Internal 已上傳檔案與版本資訊</div>
+            <div id="current-internal-file-info" style="font-size:13px; color:var(--text-dim);">載入中...</div>
+          </div>
+          <button id="delete-internal-btn" class="btn btn-red btn-sm" onclick="deleteInternalFile()" style="display:none;">🗑️ 刪除 YangEnx Internal 檔案與版本</button>
+        </div>
+
+        <div class="form-grid" style="grid-template-columns: 1.5fr 1fr; margin-bottom:14px;">
+          <div>
+            <label>選擇 YangEnx Internal.dll 檔案 (.dll / .exe)</label>
+            <input type="file" id="internal-file-input" accept=".dll,.exe" style="width:100%;" />
+          </div>
+          <div>
+            <label>設定 Internal 最新版本號</label>
+            <input id="internal-version-input" placeholder="例如: v1.0.0" style="width:100%;" />
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label>Internal 版本更新內容說明 (Changelog)</label>
+          <textarea id="internal-changelog-input" rows="3" placeholder="例如: 1. 修復敵人 ESP 會跑到自己身上問題&#10;2. ESP 最佳化更不吃效能" style="width:100%; background:#0d0d14; border:1px solid var(--panel-border); border-radius:6px; color:var(--text); padding:10px; font-size:13px; outline:none; resize:vertical;"></textarea>
+        </div>
+
+        <div>
+          <button class="btn btn-gradient" style="width:100%; height:42px;" onclick="uploadInternalFile()">上傳 YangEnx Internal 檔案並更新版本說明</button>
+        </div>
+        <div id="upload-internal-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
+        <div id="upload-internal-success" style="color:var(--green); font-size:13px; margin-top:10px;"></div>
       </div>
 
       <!-- 新增授權密鑰 -->
@@ -850,7 +892,22 @@
     } else if (allApps.length) {
       uploadSelect.value = allApps[0].id;
     }
+
+    const uploadInternalSelect = document.getElementById("upload-internal-app-select");
+    const prevInternalUpload = uploadInternalSelect ? uploadInternalSelect.value : "";
+    if (uploadInternalSelect) {
+      uploadInternalSelect.innerHTML = allApps.length
+        ? options
+        : `<option value="">請先建立應用程式</option>`;
+      if (allApps.some(a => a.id === prevInternalUpload)) {
+        uploadInternalSelect.value = prevInternalUpload;
+      } else if (allApps.length) {
+        uploadInternalSelect.value = allApps[0].id;
+      }
+    }
+
     fetchClientFileInfo();
+    fetchInternalFileInfo();
   }
 
   async function fetchClientFileInfo() {
@@ -885,7 +942,7 @@
     const appId = document.getElementById("upload-app-select").value;
     if (!appId) return;
 
-    if (!confirm("確定要刪除已上傳的 Client 檔案與版本設定嗎？\n刪除後注入器將無法再下載此檔案。")) return;
+    if (!confirm("確定要刪除已上傳的 Client 檔案與版本設定嗎？")) return;
 
     try {
       await apiFetch(`/api/admin/apps/${appId}/delete-client`, { method: "DELETE" });
@@ -968,7 +1025,7 @@
 
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "上傳檔案並更新版本說明";
+        btn.textContent = "上傳 Client 檔案並更新版本說明";
         btn.style.opacity = "1";
       }
     };
@@ -978,7 +1035,148 @@
       successEl.textContent = "";
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "上傳檔案並更新版本說明";
+        btn.textContent = "上傳 Client 檔案並更新版本說明";
+        btn.style.opacity = "1";
+      }
+    };
+
+    xhr.send(formData);
+  }
+
+  // ------------------------------------------------------
+  // YangEnx Internal.dll 專用頁面處理函式
+  // ------------------------------------------------------
+  async function fetchInternalFileInfo() {
+    const appId = document.getElementById("upload-internal-app-select") ? document.getElementById("upload-internal-app-select").value : "";
+    const infoEl = document.getElementById("current-internal-file-info");
+    const deleteBtn = document.getElementById("delete-internal-btn");
+    const changelogInput = document.getElementById("internal-changelog-input");
+
+    if (!infoEl) return;
+    if (!appId) { infoEl.textContent = "請先選擇應用程式"; return; }
+
+    try {
+      const info = await apiFetch(`/api/admin/apps/${appId}/internal-info`);
+      if (info.has_file) {
+        const sizeMb = (info.size / (1024 * 1024)).toFixed(2);
+        infoEl.innerHTML = `檔案名稱: <b>${escapeHtml(info.filename)}</b> | 容量: <b>${info.size} 位元組 (${sizeMb} MB)</b> | 最新版本號: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b>`;
+        document.getElementById("internal-version-input").value = info.version;
+        if (changelogInput) changelogInput.value = info.changelog || "";
+        if (deleteBtn) deleteBtn.style.display = "inline-block";
+      } else {
+        infoEl.innerHTML = `<span style="color:var(--amber);">尚未上傳 YangEnx Internal 檔案 (目前設定版本號: ${escapeHtml(info.version)})</span>`;
+        document.getElementById("internal-version-input").value = info.version;
+        if (changelogInput) changelogInput.value = info.changelog || "";
+        if (deleteBtn) deleteBtn.style.display = "none";
+      }
+    } catch (err) {
+      infoEl.textContent = "無法取得檔案資訊：" + err.message;
+      if (deleteBtn) deleteBtn.style.display = "none";
+    }
+  }
+
+  async function deleteInternalFile() {
+    const appId = document.getElementById("upload-internal-app-select").value;
+    if (!appId) return;
+
+    if (!confirm("確定要刪除已上傳的 YangEnx Internal 檔案與版本設定嗎？\n刪除後注入器將無法再下載此檔案。")) return;
+
+    try {
+      await apiFetch(`/api/admin/apps/${appId}/delete-internal`, { method: "DELETE" });
+      document.getElementById("internal-file-input").value = "";
+      document.getElementById("internal-changelog-input").value = "";
+      alert("🎉 已成功刪除 YangEnx Internal.dll 檔案與版本號！");
+      fetchInternalFileInfo();
+      fetchApplications();
+    } catch (err) {
+      alert("刪除失敗：" + err.message);
+    }
+  }
+
+  async function uploadInternalFile() {
+    const errorEl = document.getElementById("upload-internal-error");
+    const successEl = document.getElementById("upload-internal-success");
+    const btn = document.querySelector("button[onclick='uploadInternalFile()']");
+    
+    if (errorEl) errorEl.textContent = "";
+    if (successEl) successEl.textContent = "";
+
+    const appId = document.getElementById("upload-internal-app-select").value;
+    const fileInput = document.getElementById("internal-file-input");
+    const version = document.getElementById("internal-version-input").value.trim();
+    const changelog = document.getElementById("internal-changelog-input").value.trim();
+
+    if (!appId) { if (errorEl) errorEl.textContent = "請先選擇應用程式"; return; }
+    if (!fileInput.files || fileInput.files.length === 0) { if (errorEl) errorEl.textContent = "請選擇要上傳的 .dll 或 .exe 檔案"; return; }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append("file", file);
+    if (version) formData.append("version", version);
+    formData.append("changelog", changelog);
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "上傳中，請稍候...";
+      btn.style.opacity = "0.6";
+    }
+
+    const totalMb = (file.size / (1024 * 1024)).toFixed(2);
+    if (successEl) {
+      successEl.style.color = "var(--cyan)";
+      successEl.textContent = `⚡ 正在傳送檔案至伺服器... 0% (0.0 MB / ${totalMb} MB)`;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", API_BASE + `/api/admin/apps/${appId}/upload-internal`, true);
+    xhr.setRequestHeader("X-Admin-Token", adminToken);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && successEl) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        const loadedMb = (e.loaded / (1024 * 1024)).toFixed(2);
+        successEl.textContent = `⚡ 正在傳送檔案至伺服器... ${percent}% (${loadedMb} MB / ${totalMb} MB)`;
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (successEl) {
+            successEl.style.color = "var(--green)";
+            successEl.textContent = `🎉 檔案 ${data.filename} 上傳成功！最新版本號已更新為 ${data.version}`;
+          }
+          fileInput.value = "";
+          alert(`🎉 檔案 ${data.filename} 已成功上傳！\n最新版本號已更新為 ${data.version}`);
+          fetchInternalFileInfo();
+          fetchApplications();
+        } catch (e) {
+          if (errorEl) errorEl.textContent = "解析回應失敗：" + xhr.responseText;
+        }
+      } else {
+        let detail = xhr.responseText;
+        try {
+          const parsed = JSON.parse(xhr.responseText);
+          if (parsed && parsed.detail) detail = parsed.detail;
+        } catch (e) {}
+        if (errorEl) errorEl.textContent = `上傳失敗 (${xhr.status})：${detail}`;
+        if (successEl) successEl.textContent = "";
+      }
+
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "上傳 YangEnx Internal 檔案並更新版本說明";
+        btn.style.opacity = "1";
+      }
+    };
+
+    xhr.onerror = () => {
+      if (errorEl) errorEl.textContent = "網路傳輸發生錯誤，請檢查伺服器連線。";
+      if (successEl) successEl.textContent = "";
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "上傳 YangEnx Internal 檔案並更新版本說明";
         btn.style.opacity = "1";
       }
     };
