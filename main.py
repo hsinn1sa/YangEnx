@@ -627,14 +627,24 @@ def ensure_bucket_exists():
         pass
 
 
+class SaveInternalSettingsRequest(BaseModel):
+    app_id: str
+    latest_version: str = "v1.0.0"
+    update_changelog: str = ""
+    stopped: bool = False
+    stop_message: str = "YangEnx Internal 停服維護中"
+
+
 DEFAULT_INTERNAL_SETTINGS = {
     "latest_version": "v1.0.0",
     "update_changelog": "",
+    "stopped": False,
+    "stop_message": "YangEnx Internal 停服維護中",
 }
 
 
 def get_internal_settings(app_id: str) -> dict:
-    """取得某個應用程式 YangEnx Internal.dll 的版本設定 / 更新說明。"""
+    """取得某個應用程式 YangEnx Internal.dll 的版本設定 / 更新說明 / 停服設定。"""
     settings = dict(DEFAULT_INTERNAL_SETTINGS)
     json_file = os.path.join(UPLOADS_DIR, f"{app_id}_internal_settings.json")
     if os.path.exists(json_file):
@@ -644,13 +654,19 @@ def get_internal_settings(app_id: str) -> dict:
                 data = json.load(f)
                 settings["latest_version"] = data.get("latest_version") or DEFAULT_INTERNAL_SETTINGS["latest_version"]
                 settings["update_changelog"] = data.get("update_changelog", "")
+                settings["stopped"] = bool(data.get("stopped", False))
+                settings["stop_message"] = data.get("stop_message") or DEFAULT_INTERNAL_SETTINGS["stop_message"]
         except Exception:
             pass
     return settings
 
 
-def set_internal_settings(app_id: str, latest_version: str, update_changelog: str = ""):
-    """設定某個應用程式 YangEnx Internal.dll 的版本設定 / 更新說明。"""
+def set_internal_settings(app_id: str, latest_version: str, update_changelog: str = "", stopped: Optional[bool] = None, stop_message: Optional[str] = None):
+    """設定某個應用程式 YangEnx Internal.dll 的版本設定 / 更新說明 / 停服設定。"""
+    current = get_internal_settings(app_id)
+    new_stopped = current["stopped"] if stopped is None else bool(stopped)
+    new_stop_message = current["stop_message"] if stop_message is None else stop_message.strip()
+
     json_file = os.path.join(UPLOADS_DIR, f"{app_id}_internal_settings.json")
     try:
         import json
@@ -658,6 +674,8 @@ def set_internal_settings(app_id: str, latest_version: str, update_changelog: st
             json.dump({
                 "latest_version": latest_version,
                 "update_changelog": update_changelog,
+                "stopped": new_stopped,
+                "stop_message": new_stop_message or DEFAULT_INTERNAL_SETTINGS["stop_message"],
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }, f, ensure_ascii=False, indent=2)
     except Exception:
@@ -894,8 +912,23 @@ async def upload_internal_file(
         "filename": file.filename or "YangEnx Internal.dll",
         "size": file_size,
         "version": latest_version,
-        "changelog": update_changelog
+        "changelog": update_changelog,
+        "stopped": settings.get("stopped", False),
+        "stop_message": settings.get("stop_message", "")
     }
+
+
+@app.put("/api/admin/apps/{app_id}/internal-settings", dependencies=[Depends(require_admin)])
+def update_internal_settings_api(app_id: str, req: SaveInternalSettingsRequest):
+    get_application_or_404(app_id)
+    set_internal_settings(
+        app_id,
+        latest_version=req.latest_version,
+        update_changelog=req.update_changelog,
+        stopped=req.stopped,
+        stop_message=req.stop_message
+    )
+    return {"ok": True}
 
 
 @app.delete("/api/admin/apps/{app_id}/delete-internal", dependencies=[Depends(require_admin)])
@@ -921,7 +954,7 @@ async def delete_internal_file(app_id: str):
     except Exception as e:
         print(f"[Storage Delete Warning] {e}")
 
-    set_internal_settings(app_id, "v1.0.0", "")
+    set_internal_settings(app_id, "v1.0.0", "", False, "YangEnx Internal 停服維護中")
 
     return {"ok": True, "message": "已成功刪除 YangEnx Internal.dll 檔案與版本設定"}
 
@@ -947,21 +980,14 @@ def get_internal_file_info(app_id: str):
         except Exception:
             pass
 
-    if size == 0:
-        return {
-            "has_file": False,
-            "filename": None,
-            "size": 0,
-            "version": settings["latest_version"],
-            "changelog": settings.get("update_changelog", "")
-        }
-
     return {
-        "has_file": True,
-        "filename": "YangEnx Internal.dll",
+        "has_file": size > 0,
+        "filename": "YangEnx Internal.dll" if size > 0 else None,
         "size": size,
         "version": settings["latest_version"],
-        "changelog": settings.get("update_changelog", "")
+        "changelog": settings.get("update_changelog", ""),
+        "stopped": settings.get("stopped", False),
+        "stop_message": settings.get("stop_message", "YangEnx Internal 停服維護中")
     }
 
 
@@ -970,6 +996,15 @@ def get_internal_public_info(app_secret: str = Query(...)):
     application = resolve_app(app_secret)
     app_id = application["id"]
     settings = get_internal_settings(app_id)
+
+    if settings.get("stopped", False):
+        return {
+            "status": "stopped",
+            "message": settings.get("stop_message") or "YangEnx Internal 停服維護中",
+            "version": settings["latest_version"],
+            "size": 0,
+            "changelog": settings.get("update_changelog", "")
+        }
 
     size = 0
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_YangEnx_Internal.dll")
