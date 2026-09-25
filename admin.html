@@ -574,15 +574,15 @@
         <div id="maintenance-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
       </div>
 
-      <!-- Client 檔案與版本管理 -->
+      <!-- YangEnx Internal.dll / Client 檔案與版本管理 -->
       <div class="panel">
-        <h2>Client 檔案與版本管理</h2>
+        <h2>YangEnx Internal.dll / Client 檔案與版本管理</h2>
         <div style="margin-bottom:16px;">
           <label>選擇應用程式</label>
           <select id="upload-app-select" onchange="fetchClientFileInfo()"></select>
         </div>
         <div style="font-size:13px; color:var(--text-dim); margin-bottom:14px;">
-          在此上傳該應用程式注入用的 Client.dll 檔案，設定對應的版本號與更新內容說明。注入器開機時將自動比對版本並提示更新內容。
+          在此上傳該應用程式注入用的 YangEnx Internal.dll (或 Client.dll) 檔案，設定對應的版本號與更新內容說明。注入器開機時將自動比對版本並提示更新內容。
         </div>
 
         <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -590,12 +590,12 @@
             <div style="font-size:12px; color:var(--cyan); font-weight:600; margin-bottom:6px;">目前已上傳檔案與版本資訊</div>
             <div id="current-file-info" style="font-size:13px; color:var(--text-dim);">載入中...</div>
           </div>
-          <button id="delete-client-btn" class="btn btn-red btn-sm" onclick="deleteClientFile()" style="display:none;">🗑️ 刪除 Client 檔案與版本</button>
+          <button id="delete-client-btn" class="btn btn-red btn-sm" onclick="deleteClientFile()" style="display:none;">🗑️ 刪除已上傳檔案與版本</button>
         </div>
 
         <div class="form-grid" style="grid-template-columns: 1.5fr 1fr; margin-bottom:14px;">
           <div>
-            <label>選擇 Client 檔案 (.dll / .exe)</label>
+            <label>選擇 YangEnx Internal.dll 檔案 (.dll / .exe)</label>
             <input type="file" id="client-file-input" accept=".dll,.exe" style="width:100%;" />
           </div>
           <div>

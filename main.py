@@ -652,7 +652,9 @@ async def upload_client_file(
     )
 
     # 1. 採用 64KB 區塊分段串流寫入，記憶體佔用極限只有 64KB，徹底防止 Render 記憶體爆掉 503
-    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    filename = file.filename or "YangEnx Internal.dll"
+    save_name = f"{app_id}_YangEnx_Internal.dll"
+    local_path = os.path.join(UPLOADS_DIR, save_name)
     file_size = 0
     with open(local_path, "wb") as f:
         while chunk := await file.read(65536):
@@ -664,7 +666,7 @@ async def upload_client_file(
     try:
         with open(local_path, "rb") as f:
             supabase.storage.from_(BUCKET_NAME).upload(
-                path=f"{app_id}/Client.dll",
+                path=f"{app_id}/YangEnx Internal.dll",
                 file=f,
                 file_options={"upsert": "true", "content-type": "application/octet-stream"}
             )
@@ -673,7 +675,7 @@ async def upload_client_file(
 
     return {
         "ok": True,
-        "filename": file.filename or "Client.dll",
+        "filename": filename,
         "size": file_size,
         "version": latest_version,
         "changelog": update_changelog
@@ -684,13 +686,14 @@ async def upload_client_file(
 async def delete_client_file(app_id: str):
     get_application_or_404(app_id)
 
-    # 1. 刪除本地 Client.dll 檔案與 changelog.txt
-    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-    if os.path.exists(local_path):
-        try:
-            os.remove(local_path)
-        except Exception as e:
-            print(f"[File Delete Error] {e}")
+    # 1. 刪除本地 YangEnx Internal.dll 與 Client.dll 檔案及 changelog.txt
+    for target in [f"{app_id}_YangEnx_Internal.dll", f"{app_id}_Client.dll"]:
+        local_path = os.path.join(UPLOADS_DIR, target)
+        if os.path.exists(local_path):
+            try:
+                os.remove(local_path)
+            except Exception as e:
+                print(f"[File Delete Error] {e}")
 
     changelog_file = os.path.join(UPLOADS_DIR, f"{app_id}_changelog.txt")
     if os.path.exists(changelog_file):
@@ -699,9 +702,9 @@ async def delete_client_file(app_id: str):
         except Exception as e:
             print(f"[Changelog Delete Error] {e}")
 
-    # 2. 刪除 Supabase Storage 中的檔案 (靜默保護，即使 Storage 未建立也不錯亂)
+    # 2. 刪除 Supabase Storage 中的檔案
     try:
-        supabase.storage.from_(BUCKET_NAME).remove([f"{app_id}/Client.dll"])
+        supabase.storage.from_(BUCKET_NAME).remove([f"{app_id}/YangEnx Internal.dll", f"{app_id}/Client.dll"])
     except Exception as e:
         print(f"[Storage Delete Warning] {e}")
 
@@ -727,17 +730,24 @@ def get_client_file_info(app_id: str):
     settings = get_app_settings(app_id)
 
     size = 0
-    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-    if os.path.exists(local_path):
-        size = os.path.getsize(local_path)
+    actual_filename = "YangEnx Internal.dll"
+    for fname in [f"{app_id}_YangEnx_Internal.dll", f"{app_id}_Client.dll"]:
+        local_path = os.path.join(UPLOADS_DIR, fname)
+        if os.path.exists(local_path):
+            size = os.path.getsize(local_path)
+            if "Client.dll" in fname:
+                actual_filename = "Client.dll"
+            break
 
     if size == 0:
         try:
             res = supabase.storage.from_(BUCKET_NAME).list(app_id)
             if res:
                 for item in res:
-                    if item.get("name") == "Client.dll":
+                    item_name = item.get("name")
+                    if item_name in ["YangEnx Internal.dll", "Client.dll"]:
                         size = item.get("metadata", {}).get("size", 0) or item.get("size", 0)
+                        actual_filename = item_name
                         break
         except Exception:
             pass
@@ -753,7 +763,7 @@ def get_client_file_info(app_id: str):
 
     return {
         "has_file": True,
-        "filename": "Client.dll",
+        "filename": actual_filename,
         "size": size,
         "version": settings["latest_version"],
         "changelog": settings.get("update_changelog", "")
@@ -767,16 +777,18 @@ def get_client_public_info(app_secret: str = Query(...)):
     settings = get_app_settings(app_id)
 
     size = 0
-    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-    if os.path.exists(local_path):
-        size = os.path.getsize(local_path)
+    for fname in [f"{app_id}_YangEnx_Internal.dll", f"{app_id}_Client.dll"]:
+        local_path = os.path.join(UPLOADS_DIR, fname)
+        if os.path.exists(local_path):
+            size = os.path.getsize(local_path)
+            break
 
     if size == 0:
         try:
             res = supabase.storage.from_(BUCKET_NAME).list(app_id)
             if res:
                 for item in res:
-                    if item.get("name") == "Client.dll":
+                    if item.get("name") in ["YangEnx Internal.dll", "Client.dll"]:
                         size = item.get("metadata", {}).get("size", 0) or item.get("size", 0)
                         break
         except Exception:
@@ -802,22 +814,28 @@ def get_client_public_info(app_secret: str = Query(...)):
 def download_client_file(app_secret: str = Query(...)):
     application = resolve_app(app_secret)
     app_id = application["id"]
-    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-
+    
     # 1. 優先本地串流回傳
-    if os.path.exists(local_path):
-        return FileResponse(local_path, filename="Client.dll", media_type="application/octet-stream")
+    local_internal_path = os.path.join(UPLOADS_DIR, f"{app_id}_YangEnx_Internal.dll")
+    local_client_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    
+    if os.path.exists(local_internal_path):
+        return FileResponse(local_internal_path, filename="YangEnx Internal.dll", media_type="application/octet-stream")
+    elif os.path.exists(local_client_path):
+        return FileResponse(local_client_path, filename="Client.dll", media_type="application/octet-stream")
 
     # 2. 從 Supabase Storage 讀取
     try:
-        data = supabase.storage.from_(BUCKET_NAME).download(f"{app_id}/Client.dll")
-        if data:
-            return Response(
-                content=data,
-                media_type="application/octet-stream",
-                headers={"Content-Disposition": 'attachment; filename="Client.dll"'}
-            )
+        for s_file in [f"{app_id}/YangEnx Internal.dll", f"{app_id}/Client.dll"]:
+            data = supabase.storage.from_(BUCKET_NAME).download(s_file)
+            if data:
+                dl_name = "YangEnx Internal.dll" if "Internal" in s_file else "Client.dll"
+                return Response(
+                    content=data,
+                    media_type="application/octet-stream",
+                    headers={"Content-Disposition": f'attachment; filename="{dl_name}"'}
+                )
     except Exception:
         pass
 
-    raise HTTPException(status_code=404, detail="Client file not uploaded yet")
+    raise HTTPException(status_code=404, detail="Client / YangEnx Internal file not uploaded yet")
