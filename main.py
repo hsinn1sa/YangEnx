@@ -55,7 +55,6 @@ RATE_LIMIT_WINDOW = 60  # 秒
 def check_rate_limit(request: Request):
     client_ip = get_client_ip(request)
     now = time.time()
-    # 清除窗口外的舊記錄
     ip_request_timestamps[client_ip] = [t for t in ip_request_timestamps[client_ip] if now - t < RATE_LIMIT_WINDOW]
     if len(ip_request_timestamps[client_ip]) >= RATE_LIMIT_MAX:
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試 (Rate limit exceeded)")
@@ -86,7 +85,7 @@ async def push_status_to_key(license_key: str, status: str, message: str, extra:
 async def broadcast_to_app(app_id: Optional[str], status: str, message: str, extra: Optional[dict] = None):
     """推播給指定 app_id 或所有在線連線。"""
     for license_key, entry in list(active_connections.items()):
-        if app_id is None or entry.get("app_id") == app_id:
+        if not app_id or entry.get("app_id") == app_id:
             await push_status_to_key(license_key, status, message, extra)
 
 # ------------------------------------------------------------------
@@ -137,13 +136,13 @@ class DynamicPayloadRequest(BaseModel):
     dynamic_payload: str
 
 class BroadcastRequest(BaseModel):
-    app_id: Optional[str] = None  # None = 全域廣播
+    app_id: Optional[str] = None
     title: str
     message: str
-    level: str = "info"  # info / warning / important
+    level: str = "info"
 
 class BlacklistCreateRequest(BaseModel):
-    app_id: Optional[str] = None  # None = 全域黑名單
+    app_id: Optional[str] = None
     type: str                     # hwid 或 ip
     value: str
     reason: Optional[str] = "管理者手動封禁"
@@ -187,7 +186,6 @@ DEFAULT_APP_SETTINGS = {
 }
 
 def get_app_settings(app_id: str) -> dict:
-    """取得應用程式維護模式 / 版本號 / 動態 Payload / Changelog。"""
     settings = dict(DEFAULT_APP_SETTINGS)
     if not supabase:
         return settings
@@ -260,16 +258,15 @@ def check_blacklist(app_id: str, hwid: str, client_ip: str) -> tuple[bool, str]:
     if not supabase:
         return False, ""
     try:
-        query = supabase.table("blacklists").select("*")
-        # 篩選全域 (app_id is null) 或特定 app_id
-        res = query.execute()
+        res = supabase.table("blacklists").select("*").execute()
         for row in res.data or []:
             row_app = row.get("app_id")
-            if row_app is not None and row_app != app_id:
+            if row_app and str(row_app).strip() not in ["", "null", "undefined", "None"] and row_app != app_id:
                 continue
-            b_type = row.get("type", "").lower()
-            b_val = row.get("value", "").strip()
+            b_type = (row.get("type") or "").lower().strip()
+            b_val = (row.get("value") or "").strip()
             reason = row.get("reason") or "已被管理者列入黑名單"
+            
             if b_type == "hwid" and hwid and b_val.lower() == hwid.lower():
                 return True, f"此裝置已封禁 ({reason})"
             if b_type == "ip" and client_ip and b_val == client_ip:
@@ -289,7 +286,6 @@ def parse_hwids(hwid_str: Optional[str]) -> List[str]:
     return [hwid_str]
 
 def check_and_bind_hwid(row: dict, input_hwid: str) -> tuple[str, str, Optional[List[str]]]:
-    """多裝置 HWID 比對與自動綁定邏輯。"""
     bound = parse_hwids(row.get("hwid"))
     max_dev = row.get("max_devices", 1)
 
@@ -303,7 +299,6 @@ def check_and_bind_hwid(row: dict, input_hwid: str) -> tuple[str, str, Optional[
     return "hwid_mismatch", f"此卡密已綁定滿 {max_dev} 台裝置 (現有: {len(bound)} 台)", None
 
 def generate_server_verification(app_secret: str, license_key: str, hwid: str) -> tuple[str, int, str]:
-    """產生時間戳記與 HMAC 簽名，供 C# 客戶端防修改系統時間與串改數據。"""
     now = datetime.now(timezone.utc)
     server_timestamp = now.isoformat()
     server_time_ms = int(now.timestamp() * 1000)
@@ -336,13 +331,12 @@ def verify(req: VerifyRequest, request: Request, _: None = Depends(check_rate_li
     application = resolve_app(req.app_secret)
     app_id = application["id"]
 
-    # 雙重憑證驗證
     if req.owner_id and application.get("owner_id") != req.owner_id:
         return VerifyResponse(status="invalid", message="應用程式憑證 (Owner ID) 錯誤")
     if req.app_name and application.get("name") != req.app_name:
         return VerifyResponse(status="invalid", message="應用程式名稱不匹配")
 
-    # 1. 檢查黑名單 (HWID / IP)
+    # 1. 檢查黑名單
     is_blacklisted, bl_msg = check_blacklist(app_id, req.hwid, client_ip)
     if is_blacklisted:
         log_event(req.license_key or "UNKNOWN", "BLACKLISTED", bl_msg, req.hwid, client_ip)
@@ -385,13 +379,11 @@ def verify(req: VerifyRequest, request: Request, _: None = Depends(check_rate_li
         log_event(row["username"], "LOGIN_FAILED", hwid_msg, req.hwid, client_ip)
         return VerifyResponse(status="hwid_mismatch", message=hwid_msg)
 
-    # 更新 DB 綁定或 last_seen_at
     update_data = {"last_seen_at": datetime.now(timezone.utc).isoformat()}
     if new_bound is not None:
         update_data["hwid"] = json.dumps(new_bound)
     supabase.table("license_keys").update(update_data).eq("id", row["id"]).execute()
 
-    # 6. 產生伺服器時間簽名與動態 Payload
     server_ts, server_ms, sig = generate_server_verification(req.app_secret, req.license_key, req.hwid)
     dynamic_payload = settings.get("dynamic_payload", "")
 
@@ -738,6 +730,8 @@ async def send_broadcast(req: BroadcastRequest):
     if not req.title.strip() or not req.message.strip():
         raise HTTPException(status_code=400, detail="廣播標題與內容不可為空")
 
+    target_app_id = req.app_id.strip() if req.app_id and str(req.app_id).strip() not in ["", "null", "undefined", "None"] else None
+
     announcement_payload = {
         "type": "announcement",
         "status": "announcement",
@@ -749,7 +743,7 @@ async def send_broadcast(req: BroadcastRequest):
 
     count = 0
     for license_key, entry in list(active_connections.items()):
-        if req.app_id is None or entry.get("app_id") == req.app_id:
+        if not target_app_id or entry.get("app_id") == target_app_id:
             try:
                 await entry["ws"].send_json(announcement_payload)
                 count += 1
@@ -759,7 +753,7 @@ async def send_broadcast(req: BroadcastRequest):
     if supabase:
         try:
             supabase.table("system_announcements").insert({
-                "app_id": req.app_id,
+                "app_id": target_app_id,
                 "title": req.title,
                 "message": req.message,
                 "level": req.level,
@@ -783,11 +777,15 @@ def list_announcements():
 def list_blacklists(app_id: Optional[str] = Query(None)):
     if not supabase:
         return []
-    query = supabase.table("blacklists").select("*").order("id", desc=True)
-    if app_id:
-        query = query.eq("app_id", app_id)
-    res = query.execute()
-    return res.data
+    try:
+        query = supabase.table("blacklists").select("*").order("id", desc=True)
+        if app_id:
+            query = query.eq("app_id", app_id)
+        res = query.execute()
+        return res.data
+    except Exception as e:
+        print(f"[List Blacklist Warning] {e}")
+        return []
 
 @app.post("/api/admin/blacklists", dependencies=[Depends(require_admin)])
 async def add_blacklist(req: BlacklistCreateRequest):
@@ -801,18 +799,25 @@ async def add_blacklist(req: BlacklistCreateRequest):
     if not val:
         raise HTTPException(status_code=400, detail="封禁數值不可為空")
 
+    target_app_id = req.app_id.strip() if req.app_id and str(req.app_id).strip() not in ["", "null", "undefined", "None"] else None
+
     data = {
-        "app_id": req.app_id,
+        "app_id": target_app_id,
         "type": b_type,
         "value": val,
         "reason": req.reason or "管理者手動封禁"
     }
-    res = supabase.table("blacklists").insert(data).execute()
+
+    try:
+        res = supabase.table("blacklists").insert(data).execute()
+    except Exception as e:
+        print(f"[Blacklist Insert Error] {e}")
+        raise HTTPException(status_code=500, detail=f"寫入 Supabase 失敗：請確認在 Supabase SQL Editor 中已執行 SQL 建立 blacklists 資料表！錯誤詳情：{e}")
 
     # 即時踢掉所有符合此黑名單的線上用戶
     kicked_count = 0
     for license_key, entry in list(active_connections.items()):
-        if req.app_id and entry.get("app_id") != req.app_id:
+        if target_app_id and entry.get("app_id") != target_app_id:
             continue
         user_hwid = (entry.get("hwid") or "").lower()
         user_ip = entry.get("ip") or ""
@@ -820,13 +825,16 @@ async def add_blacklist(req: BlacklistCreateRequest):
             await push_status_to_key(license_key, "blacklisted", f"已被系統封禁: {req.reason}")
             kicked_count += 1
 
-    return {"ok": True, "data": res.data[0], "kicked_count": kicked_count}
+    return {"ok": True, "data": res.data[0] if res.data else {}, "kicked_count": kicked_count}
 
 @app.delete("/api/admin/blacklists/{blacklist_id}", dependencies=[Depends(require_admin)])
 def delete_blacklist(blacklist_id: int):
     if not supabase:
         raise HTTPException(status_code=500, detail="Database missing")
-    supabase.table("blacklists").delete().eq("id", blacklist_id).execute()
+    try:
+        supabase.table("blacklists").delete().eq("id", blacklist_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"刪除失敗：{e}")
     return {"ok": True}
 
 # ------------------------------------------------------------------

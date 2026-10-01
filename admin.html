@@ -1046,13 +1046,18 @@
 
   async function quickBlacklist(appId, type, value) {
     if (!confirm(`確定要封禁此 ${type.toUpperCase()}: ${value}？`)) return;
-    await apiFetch("/api/admin/blacklists", {
-      method: "POST",
-      body: JSON.stringify({ app_id: appId, type, value, reason: "線上監控一鍵封禁" })
-    });
-    fetchBlacklists();
-    fetchKeys();
-    showToast("🚫 封禁成功，已斷開連線！");
+    const targetAppId = (appId && appId !== 'null' && appId !== 'undefined') ? appId : null;
+    try {
+      const res = await apiFetch("/api/admin/blacklists", {
+        method: "POST",
+        body: JSON.stringify({ app_id: targetAppId, type, value, reason: "線上監控一鍵封禁" })
+      });
+      fetchBlacklists();
+      fetchKeys();
+      showToast(`🚫 封禁成功，已斷開 ${res.kicked_count} 個線上連線！`);
+    } catch (err) {
+      alert("⚠️ 封禁失敗！請確認你已在 Supabase SQL Editor 中執行 SQL 建立了 blacklists 資料表。\n\n詳細錯誤訊息：" + err.message);
+    }
   }
 
   function showToast(msg) {
