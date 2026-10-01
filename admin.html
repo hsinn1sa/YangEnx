@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YangEnx 授權管理後台</title>
+<title>YangEnx 授權管理後台 Pro</title>
 <style>
   :root {
     --bg: #0a0a0f;
@@ -45,25 +45,10 @@
     border-radius: 12px;
     padding: 32px;
   }
-  .login-box h1 {
-    font-size: 20px;
-    margin: 0 0 4px;
-  }
-  .login-box .sub {
-    color: var(--text-dim);
-    font-size: 13px;
-    margin-bottom: 24px;
-  }
-  .login-box input {
-    width: 100%;
-    margin-bottom: 16px;
-  }
-  #login-error {
-    color: var(--red);
-    font-size: 13px;
-    margin-bottom: 12px;
-    min-height: 16px;
-  }
+  .login-box h1 { font-size: 20px; margin: 0 0 4px; }
+  .login-box .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; }
+  .login-box input { width: 100%; margin-bottom: 16px; }
+  #login-error { color: var(--red); font-size: 13px; margin-bottom: 12px; min-height: 16px; }
 
   /* ---------------- Shared form controls ---------------- */
   input, select, textarea {
@@ -75,19 +60,6 @@
     font-size: 14px;
     outline: none;
     color-scheme: dark;
-  }
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover, 
-  input:-webkit-autofill:focus,
-  textarea:-webkit-autofill,
-  textarea:-webkit-autofill:hover,
-  textarea:-webkit-autofill:focus,
-  select:-webkit-autofill,
-  select:-webkit-autofill:hover,
-  select:-webkit-autofill:focus {
-    -webkit-text-fill-color: var(--text) !important;
-    -webkit-box-shadow: 0 0 0px 1000px #0d0d14 inset !important;
-    transition: background-color 5000s ease-in-out 0s;
   }
   input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
   input::placeholder, textarea::placeholder { color: #4d4d5e; }
@@ -108,14 +80,9 @@
     cursor: pointer;
     color: #fff;
   }
-  .btn-gradient {
-    background: linear-gradient(90deg, var(--purple), var(--cyan));
-  }
+  .btn-gradient { background: linear-gradient(90deg, var(--purple), var(--cyan)); }
   .btn-gradient:hover { opacity: 0.9; }
-  .btn-ghost {
-    background: #1a1a24;
-    color: var(--text-dim);
-  }
+  .btn-ghost { background: #1a1a24; color: var(--text-dim); }
   .btn-ghost:hover { color: var(--text); }
   .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 5px; }
   .btn-blue { background: #2563eb33; color: #60a5fa; border: 1px solid #2563eb55; }
@@ -214,10 +181,7 @@
   .key-input-row input { flex: 1; min-width: 0; }
   .key-input-row .btn { flex-shrink: 0; white-space: nowrap; }
   .expiry-quick { display: flex; gap: 6px; margin-top: 8px; }
-  .expiry-quick button {
-    flex: 1;
-    font-size: 12px;
-  }
+  .expiry-quick button { flex: 1; font-size: 12px; }
 
   /* ---------------- Table ---------------- */
   .table-toolbar {
@@ -259,7 +223,7 @@
   .empty-row td { text-align: center; color: var(--text-dim); padding: 30px; }
   .hwid-tag { font-size: 11px; color: var(--text-dim); }
 
-  /* ---------------- Applications (multi-app) ---------------- */
+  /* ---------------- Applications ---------------- */
   .app-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
   .app-create-row { display: flex; gap: 8px; }
   .app-create-row input { width: 220px; }
@@ -290,1105 +254,523 @@
   }
   .icon-btn:hover { color: var(--cyan); }
   .app-card-actions { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
-  .app-empty { color: var(--text-dim); font-size: 13px; padding: 12px 0; }
-  .current-app-tag { font-size: 12px; color: var(--text-dim); margin-bottom: 14px; }
-  .current-app-tag b { color: var(--cyan); }
 
-  /* ================================================================
-     手機版 RWD 深度優化 (螢幕寬度 <= 768px)
-     ================================================================ */
   @media (max-width: 768px) {
-    header {
-      padding: 14px 16px;
-      margin-bottom: 16px;
-    }
-    .logo { font-size: 16px; }
-    #logout-btn { padding: 6px 12px; font-size: 12px; }
-
-    main { padding: 0 12px 36px; }
-
-    .login-box { width: calc(100vw - 32px); max-width: 360px; padding: 20px; }
-
-    /* 統計卡片：手機版採雙欄排列，畫面更精簡精美 */
-    .stats {
-      grid-template-columns: repeat(2, 1fr) !important;
-      gap: 10px !important;
-      margin-bottom: 16px !important;
-    }
-    .stat-card { padding: 12px 14px !important; }
-    .stat-label { font-size: 11px !important; }
-    .stat-value { font-size: 22px !important; }
-
-    .panel { padding: 16px !important; margin-bottom: 16px !important; border-radius: 10px !important; }
-    .panel h2 { font-size: 15px !important; margin-bottom: 14px !important; }
-
-    /* 表單單欄極致排版，避免邊界溢出 */
-    .form-grid {
-      grid-template-columns: 1fr !important;
-      gap: 12px !important;
-    }
-
-    /* 到期日快速按鈕 5 欄 (手機小螢幕轉 3 欄)，完美對齊 */
-    .expiry-quick {
-      display: grid !important;
-      grid-template-columns: repeat(5, 1fr) !important;
-      gap: 6px !important;
-    }
-    @media (max-width: 480px) {
-      .expiry-quick {
-        grid-template-columns: repeat(3, 1fr) !important;
-      }
-    }
-    .expiry-quick button {
-      padding: 8px 4px !important;
-      font-size: 12px !important;
-    }
-
-    .key-input-row {
-      flex-direction: column !important;
-      gap: 6px !important;
-    }
-    .key-input-row .btn {
-      width: 100% !important;
-      height: 38px !important;
-    }
-
-    .table-toolbar {
-      justify-content: stretch !important;
-      flex-direction: column !important;
-      gap: 8px !important;
-    }
-    .table-toolbar select,
-    .table-toolbar input {
-      width: 100% !important;
-      font-size: 13.5px !important;
-    }
-
-    .app-toolbar {
-      flex-direction: column !important;
-      align-items: stretch !important;
-      gap: 10px !important;
-    }
-    .app-create-row {
-      flex-direction: column !important;
-      gap: 8px !important;
-    }
-    .app-create-row input { width: 100% !important; }
-    .app-grid { grid-template-columns: 1fr !important; }
-
-    /* 應用程式卡片 Secret 長字串手機版點擊自動換行 */
-    .app-field-value {
-      font-size: 11px !important;
-      padding: 6px 8px !important;
-      word-break: break-all !important;
-    }
-    .app-field-value .value-text {
-      white-space: normal !important;
-      word-break: break-all !important;
-    }
-    .app-card-actions {
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 6px !important;
-    }
-    .app-card-actions .btn {
-      width: 100% !important;
-      text-align: center !important;
-    }
-
-    /* 已上傳 Client 檔案區域手機滿版設計 */
-    #current-file-info {
-      font-size: 12px !important;
-      line-height: 1.5 !important;
-    }
-    #delete-client-btn {
-      width: 100% !important;
-      margin-top: 8px !important;
-      padding: 8px 12px !important;
-      text-align: center !important;
-    }
-
-    /* 卡密列表：手機版轉換為高質感滑順獨立卡片 */
-    table, thead, tbody, th, td, tr { display: block !important; }
-    thead { display: none !important; }
-    tbody tr {
-      background: #14141d !important;
-      border: 1px solid var(--panel-border) !important;
-      border-radius: 10px !important;
-      margin-bottom: 12px !important;
-      padding: 6px 0 !important;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-    }
-    tbody tr:hover { background: #14141d !important; }
-
-    /* 手機版「沒有符合的密鑰」無卡片化居中極致修正 */
-    tbody tr.empty-row {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-    tbody tr.empty-row td {
-      display: block !important;
-      width: 100% !important;
-      text-align: center !important;
-      justify-content: center !important;
-      border-bottom: none !important;
-      padding: 30px 0 !important;
-      color: var(--text-dim) !important;
-    }
-    tbody tr.empty-row td::before {
-      display: none !important;
-      content: "" !important;
-    }
-
-    tbody td {
-      display: flex !important;
-      justify-content: space-between !important;
-      align-items: center !important;
-      gap: 10px !important;
-      padding: 10px 14px !important;
-      border-bottom: 1px solid #1e1e2c !important;
-      text-align: right !important;
-    }
-    tbody td:last-child {
-      border-bottom: none !important;
-      flex-direction: column !important;
-      align-items: stretch !important;
-      gap: 8px !important;
-      padding-top: 12px !important;
-    }
-    tbody td::before {
-      content: attr(data-label) !important;
-      color: var(--text-dim) !important;
-      font-size: 11px !important;
-      font-weight: 600 !important;
-      text-align: left !important;
-      flex-shrink: 0 !important;
-    }
-    .action-group {
-      display: flex !important;
-      width: 100% !important;
-      gap: 6px !important;
-    }
-    .action-group .btn {
-      flex: 1 !important;
-      padding: 9px 0 !important;
-      font-size: 12.5px !important;
-      text-align: center !important;
-    }
-    .key-cell {
-      font-size: 13px !important;
-      word-break: break-all !important;
-      text-align: right !important;
-      color: var(--purple) !important;
-    }
+    header { padding: 16px 20px; }
+    main { padding: 0 16px 32px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .table-toolbar input, .table-toolbar select { width: 100%; }
   }
 </style>
 </head>
 <body>
 
-  <!-- ============ 登入畫面 ============ -->
-  <div id="login-screen">
-    <div class="login-box">
-      <h1>YANGENX <span style="color:var(--cyan)">ADMIN</span></h1>
-      <div class="sub">輸入後台密鑰以繼續</div>
-      <label>ADMIN TOKEN</label>
-      <input id="admin-token-input" type="password" placeholder="輸入你的 Admin Token" />
-      <div id="login-error"></div>
-      <button class="btn btn-gradient" style="width:100%" onclick="login()">登入</button>
-    </div>
+<!-- Login Screen -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>YangEnx Admin</h1>
+    <div class="sub">請輸入管理員密鑰 (Admin Token)</div>
+    <div id="login-error"></div>
+    <input type="password" id="admin-token-input" placeholder="Admin Token" autofocus>
+    <button class="btn btn-gradient" style="width:100%" onclick="login()">進入後台</button>
   </div>
+</div>
 
-  <!-- ============ 主畫面 ============ -->
-  <div id="app">
-    <header>
-      <div class="logo">YANGENX <span>ADMIN</span></div>
-      <button id="logout-btn" onclick="logout()">登出</button>
-    </header>
+<!-- App Main Screen -->
+<div id="app">
+  <header>
+    <div class="logo">YANGENX <span>PRO</span></div>
+    <button id="logout-btn" onclick="logout()">登出管理員</button>
+  </header>
 
-    <main>
-      <!-- 統計卡片 -->
-      <div class="stats">
-        <div class="stat-card total">
-          <div class="stat-label">卡密總數 TOTAL</div>
-          <div class="stat-value" id="stat-total">0</div>
-        </div>
-        <div class="stat-card active">
-          <div class="stat-label">啟用中 ACTIVE</div>
-          <div class="stat-value" id="stat-active">0</div>
-        </div>
-        <div class="stat-card expired">
-          <div class="stat-label">已過期/已停用</div>
-          <div class="stat-value" id="stat-expired">0</div>
-        </div>
-        <div class="stat-card online">
-          <div class="stat-label">目前在線 ONLINE</div>
-          <div class="stat-value" id="stat-online">0</div>
-        </div>
+  <main>
+    <!-- Stats Cards -->
+    <div class="stats">
+      <div class="stat-card total">
+        <div class="stat-label">卡密總數</div>
+        <div class="stat-value" id="stat-total">0</div>
       </div>
-
-      <!-- 應用程式管理 (多應用程式支援) -->
-      <div class="panel">
-        <h2>應用程式管理</h2>
-        <div class="app-toolbar">
-          <div style="font-size:13px; color:var(--text-dim);">
-            每個應用程式都有各自獨立的 App Secret，寫進不同的軟體裡就能各自獨立管理，卡密也互不相通。
-          </div>
-          <div class="app-create-row">
-            <input id="new-app-name" placeholder="新應用程式名稱，例如: YangEnx control" />
-            <button class="btn btn-gradient btn-sm" onclick="createApplication()">+ 新增應用程式</button>
-          </div>
-        </div>
-        <div id="app-create-error" style="color:var(--red); font-size:13px; margin-bottom:12px;"></div>
-        <div id="app-grid" class="app-grid">
-          <div class="app-empty">載入中...</div>
-        </div>
+      <div class="stat-card active">
+        <div class="stat-label">生效中卡密</div>
+        <div class="stat-value" id="stat-active" style="color:var(--green)">0</div>
       </div>
-
-      <!-- 系統維護模式 -->
-      <div class="panel">
-        <h2>系統維護模式</h2>
-        <div style="margin-bottom:16px;">
-          <label>套用到哪個應用程式</label>
-          <select id="maintenance-app-select" onchange="fetchMaintenanceSettings()"></select>
-        </div>
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
-          <div>
-            <div style="font-size:13px; color:var(--text-dim); margin-bottom:4px;">
-              開啟後，這個應用程式底下所有嘗試登入或目前在線的使用者都會立刻被擋下並顯示下方訊息，其他應用程式不受影響
-            </div>
-            <div id="maintenance-status-tag" class="badge badge-active">維護模式：關閉</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="maintenance-toggle" onchange="onMaintenanceToggle()" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        <label>中斷提示訊息</label>
-        <input id="maintenance-message" placeholder="例如: 卡密系統維護中" style="width:100%; margin-bottom:14px;" />
-        <label style="margin-top:14px; display:block;">最新版本號</label>
-        <input id="latest-version-input" placeholder="例如: v1.0.3" style="width:100%; margin-bottom:14px;" />
-        <button class="btn btn-gradient" onclick="saveMaintenanceSettings()">儲存設定</button>
-        <div id="maintenance-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
+      <div class="stat-card expired">
+        <div class="stat-label">已過期 / 停用</div>
+        <div class="stat-value" id="stat-expired" style="color:var(--red)">0</div>
       </div>
+      <div class="stat-card online">
+        <div class="stat-label">即時在線連線 (WS)</div>
+        <div class="stat-value" id="stat-online" style="color:var(--amber)">0</div>
+      </div>
+    </div>
 
-      <!-- Client 檔案與版本管理 -->
-      <div class="panel">
-        <h2>Client 檔案與版本管理 (Client.dll)</h2>
-        <div style="margin-bottom:16px;">
-          <label>選擇應用程式</label>
-          <select id="upload-app-select" onchange="fetchClientFileInfo()"></select>
+    <!-- 1. Applications Panel -->
+    <div class="panel">
+      <h2>應用程式管理 (Multi-App KeyAuth 架構)</h2>
+      <div class="app-toolbar">
+        <div class="app-create-row">
+          <input type="text" id="new-app-name" placeholder="應用程式名稱 (例如: GameHack)" />
+          <button class="btn btn-gradient" onclick="createApplication()">新增應用程式</button>
         </div>
-        <div style="font-size:13px; color:var(--text-dim); margin-bottom:14px;">
-          在此上傳該應用程式對應的 Client.dll 檔案，設定對應的版本號與更新內容說明。
-        </div>
+        <div id="app-create-error" style="color:var(--red); font-size:12px;"></div>
+      </div>
+      <div id="app-list" class="app-grid">
+        <div class="app-empty">正在載入應用程式列表...</div>
+      </div>
+    </div>
 
-        <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-          <div>
-            <div style="font-size:12px; color:var(--cyan); font-weight:600; margin-bottom:6px;">目前 Client 已上傳檔案與版本資訊</div>
-            <div id="current-file-info" style="font-size:13px; color:var(--text-dim);">載入中...</div>
-          </div>
-          <button id="delete-client-btn" class="btn btn-red btn-sm" onclick="deleteClientFile()" style="display:none;">🗑️ 刪除 Client 檔案與版本</button>
-        </div>
-
-        <div class="form-grid" style="grid-template-columns: 1.5fr 1fr; margin-bottom:14px;">
-          <div>
-            <label>選擇 Client 檔案 (.dll / .exe)</label>
-            <input type="file" id="client-file-input" accept=".dll,.exe" style="width:100%;" />
-          </div>
-          <div>
-            <label>設定 Client 最新版本號</label>
-            <input id="client-version-input" placeholder="例如: v1.0.1" style="width:100%;" />
-          </div>
-        </div>
-
-        <div style="margin-bottom:16px;">
-          <label>Client 版本更新內容說明 (Changelog)</label>
-          <textarea id="client-changelog-input" rows="3" placeholder="例如: 1. 修復 Client 連線問題" style="width:100%; background:#0d0d14; border:1px solid var(--panel-border); border-radius:6px; color:var(--text); padding:10px; font-size:13px; outline:none; resize:vertical;"></textarea>
-        </div>
-
+    <!-- 2. License Key Management -->
+    <div class="panel">
+      <h2>新增卡密</h2>
+      <div id="create-error" style="color:var(--red); font-size:13px; margin-bottom:10px;"></div>
+      <div class="form-grid">
         <div>
-          <button class="btn btn-gradient" style="width:100%; height:42px;" onclick="uploadClientFile()">上傳 Client 檔案並更新版本說明</button>
+          <label>所屬應用程式</label>
+          <select id="new-key-app"></select>
         </div>
-        <div id="upload-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
-        <div id="upload-success" style="color:var(--green); font-size:13px; margin-top:10px;"></div>
-      </div>
-
-      <!-- YangEnx Internal.dll 檔案與版本管理 (獨立分頁) -->
-      <div class="panel">
-        <h2>YangEnx Internal.dll 檔案與版本管理</h2>
-        <div style="margin-bottom:16px;">
-          <label>選擇應用程式</label>
-          <select id="upload-internal-app-select" onchange="fetchInternalFileInfo()"></select>
-        </div>
-        <div style="font-size:13px; color:var(--text-dim); margin-bottom:14px;">
-          在此上傳該應用程式注入用的 YangEnx Internal.dll 檔案，設定對應的版本號與更新內容說明。注入器開機時將自動比對版本並提示更新內容。
-        </div>
-
-        <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-          <div>
-            <div style="font-size:12px; color:var(--cyan); font-weight:600; margin-bottom:6px;">目前 YangEnx Internal 已上傳檔案與版本資訊</div>
-            <div id="current-internal-file-info" style="font-size:13px; color:var(--text-dim);">載入中...</div>
-          </div>
-          <button id="delete-internal-btn" class="btn btn-red btn-sm" onclick="deleteInternalFile()" style="display:none;">🗑️ 刪除 YangEnx Internal 檔案與版本</button>
-        </div>
-
-        <div class="form-grid" style="grid-template-columns: 1.5fr 1fr; margin-bottom:14px;">
-          <div>
-            <label>選擇 YangEnx Internal.dll 檔案 (.dll / .exe)</label>
-            <input type="file" id="internal-file-input" accept=".dll,.exe" style="width:100%;" />
-          </div>
-          <div>
-            <label>設定 Internal 最新版本號</label>
-            <input id="internal-version-input" placeholder="例如: v1.0.0" style="width:100%;" />
-          </div>
-        </div>
-
-        <div style="margin-bottom:16px;">
-          <label>Internal 版本更新內容說明 (Changelog)</label>
-          <textarea id="internal-changelog-input" rows="3" placeholder="例如: 1. 修復敵人 ESP 會跑到自己身上問題&#10;2. ESP 最佳化更不吃效能" style="width:100%; background:#0d0d14; border:1px solid var(--panel-border); border-radius:6px; color:var(--text); padding:10px; font-size:13px; outline:none; resize:vertical;"></textarea>
-        </div>
-
-        <!-- 停服 / 中斷服務開關 -->
-        <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:14px; margin-bottom:16px;">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-            <div>
-              <div style="font-size:13px; font-weight:600; color:var(--text); margin-bottom:2px;">YangEnx Internal 停服/中斷狀態</div>
-              <div style="font-size:12px; color:var(--text-dim);">開啟後，注入器開機查詢版本時會在 CMD 視窗中輸出下方文字並直接關閉程式。</div>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="internal-stop-toggle" onchange="onInternalStopToggle()" />
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <label>停服/中斷提示訊息內容 (顯示於注入器 CMD)</label>
-          <input id="internal-stop-message-input" placeholder="例如: 停服維護中，請留意群組通知" style="width:100%;" />
-        </div>
-
         <div>
-          <button class="btn btn-gradient" style="width:100%; height:42px;" onclick="uploadInternalFile()">儲存設定 / 上傳檔案並更新說明</button>
-        </div>
-        <div id="upload-internal-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
-        <div id="upload-internal-success" style="color:var(--green); font-size:13px; margin-top:10px;"></div>
-      </div>
-
-      <!-- 新增授權密鑰 -->
-      <div class="panel">
-        <h2>新增授權密鑰</h2>
-        <div class="form-grid">
-          <div>
-            <label>所屬應用程式 APP</label>
-            <select id="new-key-app"></select>
-          </div>
-          <div>
-            <label>密鑰 LICENSE KEY</label>
-            <div class="key-input-row">
-              <input id="new-key" placeholder="例如: XXXX-YYYY-ZZZZ" />
-              <button class="btn btn-ghost btn-sm" onclick="randomizeKey()">隨機生成</button>
-            </div>
-          </div>
-          <div>
-            <label>用戶名 USER NAME</label>
-            <input id="new-username" placeholder="例如: User01" />
-          </div>
-          <div>
-            <label>最大裝置數</label>
-            <input id="new-max-devices" type="number" min="1" value="1" />
-          </div>
-          <div>
-            <label>到期日 EXPIRY</label>
-            <input id="new-expiry" type="datetime-local" />
-            <div class="expiry-quick">
-              <button class="btn btn-ghost btn-sm" type="button" onclick="setExpiry(1)">1天</button>
-              <button class="btn btn-ghost btn-sm" type="button" onclick="setExpiry(7)">7天</button>
-              <button class="btn btn-ghost btn-sm" type="button" onclick="setExpiry(30)">30天</button>
-              <button class="btn btn-ghost btn-sm" type="button" onclick="setExpiry(365)">365天</button>
-              <button class="btn btn-ghost btn-sm" type="button" onclick="setExpiry(9999)">永久</button>
-            </div>
+          <label>卡密 (留空自動隨機產生)</label>
+          <div class="key-input-row">
+            <input type="text" id="new-key" placeholder="XXXX-YYYY-ZZZZ" />
+            <button class="btn btn-ghost" onclick="randomizeKey()">隨機生成</button>
           </div>
         </div>
-        <button class="btn btn-gradient" style="width:100%" onclick="createKey()">新增密鑰</button>
-        <div id="create-error" style="color:var(--red); font-size:13px; margin-top:10px;"></div>
+        <div>
+          <label>預設用戶名</label>
+          <input type="text" id="new-username" placeholder="User001" />
+        </div>
+        <div>
+          <label>綁定限制 (裝置數)</label>
+          <input type="number" id="new-max-devices" value="1" min="1" max="100" />
+        </div>
+        <div>
+          <label>到期日 (本地時間)</label>
+          <input type="datetime-local" id="new-expiry" />
+          <div class="expiry-quick">
+            <button class="btn btn-ghost" onclick="setExpiry(1)">1天</button>
+            <button class="btn btn-ghost" onclick="setExpiry(7)">7天</button>
+            <button class="btn btn-ghost" onclick="setExpiry(30)">30天</button>
+            <button class="btn btn-ghost" onclick="setExpiry(365)">1年</button>
+            <button class="btn btn-ghost" onclick="setExpiry(3650)">永久</button>
+          </div>
+        </div>
       </div>
+      <button class="btn btn-gradient" onclick="createKey()">建立授權卡密</button>
+    </div>
 
-      <!-- 密鑰列表 -->
-      <div class="panel">
-        <h2>密鑰列表</h2>
-        <div class="table-toolbar split">
+    <!-- 3. Key List Table -->
+    <div class="panel">
+      <h2>卡密清單</h2>
+      <div class="table-toolbar split">
+        <div>
           <select id="filter-app-id" onchange="fetchKeys()">
-            <option value="">全部應用程式</option>
+            <option value="">-- 所有應用程式 --</option>
           </select>
-          <input id="search-input" placeholder="搜尋密鑰或用戶名..." oninput="renderTable()" />
         </div>
+        <input type="text" id="search-input" placeholder="搜尋卡密或用戶名..." oninput="renderTable()" />
+      </div>
+      <div style="overflow-x:auto;">
         <table>
           <thead>
             <tr>
               <th>ID</th>
-              <th>密鑰</th>
+              <th>卡密 (License Key)</th>
               <th>應用程式</th>
               <th>用戶名</th>
-              <th>裝置</th>
-              <th>連線</th>
+              <th>裝置綁定</th>
+              <th>即時狀態</th>
               <th>到期日</th>
               <th>狀態</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody id="key-table-body">
-            <tr class="empty-row"><td colspan="9">載入中...</td></tr>
+            <tr class="empty-row"><td colspan="9">正在載入資料...</td></tr>
           </tbody>
         </table>
       </div>
-    </main>
-  </div>
+    </div>
+
+    <!-- 4. HWID / IP Blacklist Management System -->
+    <div class="panel">
+      <h2>HWID / IP 黑名單管理系統 (Blacklist System)</h2>
+      <div id="blacklist-error" style="color:var(--red); font-size:13px; margin-bottom:10px;"></div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr 2fr 2fr auto; gap:12px; margin-bottom:16px;">
+        <div>
+          <label>適用應用程式</label>
+          <select id="blacklist-app-id">
+            <option value="">-- 全域黑名單 (跨所有App) --</option>
+          </select>
+        </div>
+        <div>
+          <label>封禁類型</label>
+          <select id="blacklist-type">
+            <option value="hwid">HWID (硬體鎖)</option>
+            <option value="ip">IP 位址</option>
+          </select>
+        </div>
+        <div>
+          <label>封禁目標數值 (HWID / IP)</label>
+          <input type="text" id="blacklist-value" placeholder="輸入 HWID 字串或 IP 位址..." />
+        </div>
+        <div>
+          <label>封禁原因 / 備註</label>
+          <input type="text" id="blacklist-reason" placeholder="例如：惡意逆向分析 / 重複作弊" />
+        </div>
+        <div style="display:flex; align-items:flex-end;">
+          <button class="btn btn-red" style="width:100%; white-space:nowrap;" onclick="addBlacklist()">加入黑名單並踢下線</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>適用範圍</th>
+              <th>類型</th>
+              <th>封禁數值 (HWID / IP)</th>
+              <th>原因</th>
+              <th>建立時間</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="blacklist-table-body">
+            <tr class="empty-row"><td colspan="7">載入中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 5. Real-time Broadcast Announcement Modal / Panel -->
+    <div class="panel">
+      <h2>即時廣播公告彈窗推播 (Real-time Broadcast Push)</h2>
+      <div style="display:grid; grid-template-columns: 1.5fr 1fr 2fr auto; gap:12px; margin-bottom:16px;">
+        <div>
+          <label>目標應用程式</label>
+          <select id="broadcast-app-id">
+            <option value="">-- 全域廣播 (推送給所有線上使用者) --</option>
+          </select>
+        </div>
+        <div>
+          <label>廣播層級</label>
+          <select id="broadcast-level">
+            <option value="info">一般資訊 (Info)</option>
+            <option value="warning">維護警告 (Warning)</option>
+            <option value="important">重要緊急公告 (Important)</option>
+          </select>
+        </div>
+        <div>
+          <label>廣播標題</label>
+          <input type="text" id="broadcast-title" placeholder="例如: 伺服器即將維護通知" />
+        </div>
+        <div style="display:flex; align-items:flex-end;">
+          <button class="btn btn-gradient" style="white-space:nowrap;" onclick="sendBroadcast()">即時推播給線上用戶</button>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <label>廣播詳細內容</label>
+        <textarea id="broadcast-message" rows="3" style="width:100%;" placeholder="請輸入欲推播給所有 C# 客戶端彈窗顯示的公告訊息..."></textarea>
+      </div>
+    </div>
+
+    <!-- 6. Dynamic Memory Key / Parameter Injection -->
+    <div class="panel">
+      <h2>動態記憶體 Key / 參數注入 (Dynamic Memory Injection)</h2>
+      <div style="margin-bottom:14px;">
+        <label>選擇目標應用程式</label>
+        <select id="dynamic-app-select" onchange="fetchDynamicPayload()"></select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label>動態注入內容 (JSON 或加密 Key 參數，連線驗證成功後直接回傳至記憶體)</label>
+        <textarea id="dynamic-payload-input" rows="4" style="width:100%; font-family:monospace;" placeholder='{"secret_key": "ABC123XYZ", "memory_offset": "0x7FFF00", "enable_feature_x": true}'></textarea>
+      </div>
+      <button class="btn btn-gradient" onclick="saveDynamicPayload()">儲存動態 Payload 內容</button>
+    </div>
+
+    <!-- 7. App Settings & DLL Hot Updates -->
+    <div class="panel">
+      <h2>應用程式維護模式與檔案熱更新</h2>
+      <div style="margin-bottom:20px;">
+        <label>選擇應用程式</label>
+        <select id="maintenance-app-select" onchange="fetchMaintenanceSettings(); fetchClientFileInfo(); fetchInternalFileInfo();"></select>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+        <!-- Client.dll Upload -->
+        <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
+          <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">Client.dll 上傳更新</h3>
+          <div id="current-client-file-info" style="font-size:12px; margin-bottom:12px; color:var(--text-dim);">載入中...</div>
+          <div style="margin-bottom:10px;">
+            <label>最新版本號</label>
+            <input type="text" id="client-version-input" placeholder="v1.0.0" style="width:100%;" />
+          </div>
+          <div style="margin-bottom:10px;">
+            <label>更新說明 (Changelog)</label>
+            <textarea id="client-changelog-input" rows="2" style="width:100%;"></textarea>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label>選擇 Client.dll 檔案</label>
+            <input type="file" id="client-file-input" accept=".dll" style="width:100%;" />
+          </div>
+          <button class="btn btn-gradient" style="width:100%;" onclick="uploadClientFile()">上傳 Client.dll 並更新</button>
+          <div id="upload-client-success" style="font-size:12px; margin-top:8px;"></div>
+          <div id="upload-client-error" style="font-size:12px; color:var(--red); margin-top:4px;"></div>
+        </div>
+
+        <!-- Maintenance Settings -->
+        <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
+          <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">維護模式與停服設定</h3>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+            <span style="font-size:13px;">維護模式狀態</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="maintenance-toggle" onchange="onMaintenanceToggle()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div id="maintenance-status-tag" class="badge badge-active" style="margin-bottom:14px;">維護模式：關閉</div>
+          <div style="margin-bottom:14px;">
+            <label>維護提示訊息</label>
+            <input type="text" id="maintenance-message" style="width:100%;" placeholder="系統維護中..." />
+          </div>
+          <button class="btn btn-gradient" style="width:100%;" onclick="saveMaintenanceSettings()">儲存維護設定</button>
+          <div id="maintenance-error" style="font-size:12px; color:var(--red); margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. Online Users Monitor -->
+    <div class="panel">
+      <h2>即時在線使用者監控 (WebSocket Active Connections)</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>卡密 (License Key)</th>
+              <th>應用程式</th>
+              <th>用戶名</th>
+              <th>硬體 ID (HWID)</th>
+              <th>Client IP</th>
+              <th>連線建立時間</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="online-table-body">
+            <tr class="empty-row"><td colspan="7">無在線連線</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast Notice -->
+<div id="toast" style="position:fixed; bottom:24px; right:24px; background:#111118; border:1px solid var(--cyan); color:var(--text); padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,0.5); display:none; z-index:9999; transition:all 0.3s ease;"></div>
 
 <script>
-  // 同源部署，直接打相對路徑就好，不用管網址
+  let adminToken = "";
   const API_BASE = "";
-  let adminToken = "";   // 只存在記憶體，重新整理頁面要重新輸入 (不使用 localStorage)
-  let allKeys = [];
   let allApps = [];
-  let onlineKeys = new Set(); // 目前有 WebSocket 連線的 license_key 集合
-  let visibleSecrets = new Set(); // 目前被展開顯示的 app_secret 所屬 app id
+  let allKeys = [];
+  let onlineUsersList = [];
+  let visibleSecrets = new Set();
 
   function login() {
     const token = document.getElementById("admin-token-input").value.trim();
     if (!token) return;
     adminToken = token;
-    document.getElementById("login-error").textContent = "";
-    fetchApplications(true);
+    fetchApplications();
   }
 
   function logout() {
     adminToken = "";
     document.getElementById("app").style.display = "none";
     document.getElementById("login-screen").style.display = "flex";
-    document.getElementById("admin-token-input").value = "";
   }
 
-  async function apiFetch(path, options = {}) {
-    const res = await fetch(API_BASE + path, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        "X-Admin-Token": adminToken,
-        ...(options.headers || {}),
-      },
-    });
+  async function apiFetch(url, options = {}) {
+    options.headers = options.headers || {};
+    options.headers["X-Admin-Token"] = adminToken;
+    if (options.body && typeof options.body === "string" && !options.headers["Content-Type"]) {
+      options.headers["Content-Type"] = "application/json";
+    }
+
+    const res = await fetch(API_BASE + url, options);
     if (res.status === 401) {
+      document.getElementById("login-error").textContent = "Admin Token 錯誤或無效";
+      logout();
       throw new Error("UNAUTHORIZED");
     }
-    if (!res.ok) {
-      const text = await res.text();
-      let detail = text;
-      try {
-        const parsed = JSON.parse(text);
-        if (parsed && parsed.detail) detail = parsed.detail;
-      } catch (parseErr) {
-        // 回應本來就不是 JSON，直接用原始文字
-      }
-      throw new Error(detail || "請求失敗");
-    }
-    if (res.status === 204) return null;
-    return res.json();
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "請求失敗");
+    return data;
   }
 
-  // ------------------------------------------------------
-  // 應用程式管理 (多應用程式支援)
-  // ------------------------------------------------------
-  async function fetchApplications(isInitialLogin = false) {
+  async function fetchApplications() {
     try {
       allApps = await apiFetch("/api/admin/apps");
-      if (isInitialLogin) {
-        document.getElementById("login-screen").style.display = "none";
-        document.getElementById("app").style.display = "block";
-      }
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("app").style.display = "block";
       renderApplications();
-      populateAppSelects();
-      await fetchKeys(); // 卡密列表需要 app 名稱，所以在 apps 載入完之後才抓
-      await fetchMaintenanceSettings(); // 維護模式現在是各應用程式獨立的，也要在 apps 載入完之後才抓
+      updateAppSelects();
+      fetchKeys();
+      fetchBlacklists();
     } catch (err) {
-      if (err.message === "UNAUTHORIZED") {
-        document.getElementById("login-error").textContent = "Token 錯誤，請重新輸入";
-      } else if (isInitialLogin) {
-        document.getElementById("login-error").textContent = "連線失敗，請確認後端網址正確";
+      if (err.message !== "UNAUTHORIZED") {
+        document.getElementById("login-error").textContent = "無法連接伺服器：" + err.message;
       }
     }
   }
 
   function renderApplications() {
-    const grid = document.getElementById("app-grid");
+    const listEl = document.getElementById("app-list");
     if (allApps.length === 0) {
-      grid.innerHTML = `<div class="app-empty">目前還沒有任何應用程式，請先在上面建立一個。</div>`;
+      listEl.innerHTML = `<div class="app-empty">尚未建立任何應用程式，請先在上方新增第一個 App。</div>`;
       return;
     }
-    grid.innerHTML = allApps.map(a => {
-      const secretShown = visibleSecrets.has(a.id);
-      const secretDisplay = secretShown ? a.app_secret : "•".repeat(24);
-      const created = a.created_at ? new Date(a.created_at).toLocaleDateString("zh-TW") : "-";
+    listEl.innerHTML = allApps.map(app => {
+      const showSecret = visibleSecrets.has(app.id);
+      const secretDisplay = showSecret ? app.app_secret : "••••••••••••••••••••••••••••••••";
       return `
         <div class="app-card">
-          <div class="app-card-name">${escapeHtml(a.name)}</div>
-
+          <div class="app-card-name">📱 ${escapeHtml(app.name)}</div>
           <div class="app-field">
-            <span class="app-field-label">Account Owner ID</span>
+            <span class="app-field-label">Owner ID</span>
             <div class="app-field-value">
-              <span class="value-text">${escapeHtml(a.owner_id)}</span>
-              <button class="icon-btn" title="複製" onclick="copyToClipboard('${a.owner_id}')">⧉</button>
+              <span class="value-text">${app.owner_id}</span>
+              <button class="icon-btn" onclick="copyToClipboard('${app.owner_id}')">📋</button>
             </div>
           </div>
-
           <div class="app-field">
-            <span class="app-field-label">Application Secret</span>
+            <span class="app-field-label">App Secret (金鑰)</span>
             <div class="app-field-value">
-              <span class="value-text ${secretShown ? '' : 'secret-hidden'}">${secretDisplay}</span>
-              <button class="icon-btn" title="${secretShown ? '隱藏' : '顯示'}" onclick="toggleSecret('${a.id}')">${secretShown ? '🙈' : '👁'}</button>
-              <button class="icon-btn" title="複製" onclick="copyToClipboard('${a.app_secret}')">⧉</button>
+              <span class="value-text ${showSecret ? '' : 'secret-hidden'}">${secretDisplay}</span>
+              <div>
+                <button class="icon-btn" onclick="toggleSecret('${app.id}')">${showSecret ? '👁️' : '🔒'}</button>
+                <button class="icon-btn" onclick="copyToClipboard('${app.app_secret}')">📋</button>
+              </div>
             </div>
           </div>
-
-          <div style="font-size:11px; color:var(--text-dim); margin-bottom: 8px;">建立於 ${created}</div>
-
           <div class="app-card-actions">
-            <button class="btn btn-sm btn-blue" onclick="copySnippet('${escapeJsString(a.name)}', '${a.owner_id}', '${a.app_secret}')">複製 C# 初始化程式碼</button>
-            <button class="btn btn-sm btn-gray" onclick="rotateAppSecret('${a.id}')">重設金鑰</button>
-            <button class="btn btn-sm btn-red" onclick="deleteApplication('${a.id}')">刪除應用程式</button>
+            <button class="btn btn-sm btn-ghost" onclick="copySnippet('${escapeHtml(app.name)}','${app.owner_id}','${app.app_secret}')">C# SDK 代碼</button>
+            <button class="btn btn-sm btn-amber" onclick="rotateAppSecret('${app.id}')">重設密鑰</button>
+            <button class="btn btn-sm btn-red" onclick="deleteApplication('${app.id}')">刪除</button>
           </div>
         </div>
       `;
     }).join("");
   }
 
-  function escapeJsString(str) {
-    return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  }
+  function updateAppSelects() {
+    const ids = ["new-key-app", "filter-app-id", "maintenance-app-select", "blacklist-app-id", "broadcast-app-id", "dynamic-app-select"];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const currentVal = el.value;
+      let html = id === "filter-app-id" ? `<option value="">-- 所有應用程式 --</option>`
+               : (id === "blacklist-app-id" || id === "broadcast-app-id" ? `<option value="">-- 全域 (跨所有App) --</option>` : "");
 
-  function copySnippet(name, ownerId, secret) {
-    const code = `YangEnxApi.Init(\n    appName: "${name}",\n    ownerId: "${ownerId}",\n    appSecret: "${secret}",\n    version: Program.Version\n);`;
-    copyToClipboard(code);
-    alert("已將 KeyAuth 風格 C# 初始化程式碼複製至剪貼簿！");
-  }
+      html += allApps.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
+      el.innerHTML = html;
+      if (currentVal && allApps.some(a => a.id === currentVal)) el.value = currentVal;
+    });
 
-  function populateAppSelects() {
-    const options = allApps.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
-
-    const newKeySelect = document.getElementById("new-key-app");
-    const prevSelected = newKeySelect.value;
-    newKeySelect.innerHTML = allApps.length
-      ? options
-      : `<option value="">請先建立應用程式</option>`;
-    if (allApps.some(a => a.id === prevSelected)) newKeySelect.value = prevSelected;
-
-    const filterSelect = document.getElementById("filter-app-id");
-    const prevFilter = filterSelect.value;
-    filterSelect.innerHTML = `<option value="">全部應用程式</option>` + options;
-    filterSelect.value = prevFilter;
-
-    const maintenanceSelect = document.getElementById("maintenance-app-select");
-    const prevMaintenance = maintenanceSelect.value;
-    maintenanceSelect.innerHTML = allApps.length
-      ? options
-      : `<option value="">請先建立應用程式</option>`;
-    // 維持原本選擇的應用程式；如果它被刪除了 (清單裡已經沒有)，才改選第一個
-    if (allApps.some(a => a.id === prevMaintenance)) {
-      maintenanceSelect.value = prevMaintenance;
-    } else if (allApps.length) {
-      maintenanceSelect.value = allApps[0].id;
-    }
-
-    const uploadSelect = document.getElementById("upload-app-select");
-    const prevUpload = uploadSelect.value;
-    uploadSelect.innerHTML = allApps.length
-      ? options
-      : `<option value="">請先建立應用程式</option>`;
-    if (allApps.some(a => a.id === prevUpload)) {
-      uploadSelect.value = prevUpload;
-    } else if (allApps.length) {
-      uploadSelect.value = allApps[0].id;
-    }
-
-    const uploadInternalSelect = document.getElementById("upload-internal-app-select");
-    const prevInternalUpload = uploadInternalSelect ? uploadInternalSelect.value : "";
-    if (uploadInternalSelect) {
-      uploadInternalSelect.innerHTML = allApps.length
-        ? options
-        : `<option value="">請先建立應用程式</option>`;
-      if (allApps.some(a => a.id === prevInternalUpload)) {
-        uploadInternalSelect.value = prevInternalUpload;
-      } else if (allApps.length) {
-        uploadInternalSelect.value = allApps[0].id;
-      }
-    }
-
-    fetchClientFileInfo();
-    fetchInternalFileInfo();
-  }
-
-  async function fetchClientFileInfo() {
-    const appId = document.getElementById("upload-app-select").value;
-    const infoEl = document.getElementById("current-file-info");
-    const deleteBtn = document.getElementById("delete-client-btn");
-    const changelogInput = document.getElementById("client-changelog-input");
-
-    if (!appId) { infoEl.textContent = "請先選擇應用程式"; return; }
-
-    try {
-      const info = await apiFetch(`/api/admin/apps/${appId}/client-info`);
-      if (info.has_file) {
-        const sizeMb = (info.size / (1024 * 1024)).toFixed(2);
-        infoEl.innerHTML = `檔案名稱: <b>${escapeHtml(info.filename)}</b> | 容量: <b>${info.size} 位元組 (${sizeMb} MB)</b> | 最新版本號: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b>`;
-        document.getElementById("client-version-input").value = info.version;
-        if (changelogInput) changelogInput.value = info.changelog || "";
-        if (deleteBtn) deleteBtn.style.display = "inline-block";
-      } else {
-        infoEl.innerHTML = `<span style="color:var(--amber);">尚未上傳 Client 檔案 (目前設定版本號: ${escapeHtml(info.version)})</span>`;
-        document.getElementById("client-version-input").value = info.version;
-        if (changelogInput) changelogInput.value = info.changelog || "";
-        if (deleteBtn) deleteBtn.style.display = "none";
-      }
-    } catch (err) {
-      infoEl.textContent = "無法取得檔案資訊：" + err.message;
-      if (deleteBtn) deleteBtn.style.display = "none";
-    }
-  }
-
-  async function deleteClientFile() {
-    const appId = document.getElementById("upload-app-select").value;
-    if (!appId) return;
-
-    if (!confirm("確定要刪除已上傳的 Client 檔案與版本設定嗎？")) return;
-
-    try {
-      await apiFetch(`/api/admin/apps/${appId}/delete-client`, { method: "DELETE" });
-      document.getElementById("client-file-input").value = "";
-      document.getElementById("client-changelog-input").value = "";
-      alert("🎉 已成功刪除 Client 檔案與版本號！");
+    if (allApps.length > 0) {
+      fetchMaintenanceSettings();
       fetchClientFileInfo();
-      fetchApplications();
-    } catch (err) {
-      alert("刪除失敗：" + err.message);
+      fetchDynamicPayload();
     }
   }
 
-  async function uploadClientFile() {
-    const errorEl = document.getElementById("upload-error");
-    const successEl = document.getElementById("upload-success");
-    const btn = document.querySelector("button[onclick='uploadClientFile()']");
-    
-    errorEl.textContent = "";
-    successEl.textContent = "";
-
-    const appId = document.getElementById("upload-app-select").value;
-    const fileInput = document.getElementById("client-file-input");
-    const version = document.getElementById("client-version-input").value.trim();
-    const changelog = document.getElementById("client-changelog-input").value.trim();
-
-    if (!appId) { errorEl.textContent = "請先選擇應用程式"; return; }
-    if (!fileInput.files || fileInput.files.length === 0) { errorEl.textContent = "請選擇要上傳的 .dll 或 .exe 檔案"; return; }
-
-    const file = fileInput.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-    if (version) formData.append("version", version);
-    formData.append("changelog", changelog);
-
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = "上傳中，請稍候...";
-      btn.style.opacity = "0.6";
-    }
-
-    const totalMb = (file.size / (1024 * 1024)).toFixed(2);
-    successEl.style.color = "var(--cyan)";
-    successEl.textContent = `⚡ 正在傳送檔案至伺服器... 0% (0.0 MB / ${totalMb} MB)`;
-
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", API_BASE + `/api/admin/apps/${appId}/upload-client`, true);
-    xhr.setRequestHeader("X-Admin-Token", adminToken);
-
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        const percent = Math.round((e.loaded / e.total) * 100);
-        const loadedMb = (e.loaded / (1024 * 1024)).toFixed(2);
-        successEl.textContent = `⚡ 正在傳送檔案至伺服器... ${percent}% (${loadedMb} MB / ${totalMb} MB)`;
-      }
-    };
-
-    xhr.onload = async () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          successEl.style.color = "var(--green)";
-          successEl.textContent = `🎉 檔案 ${data.filename} 上傳成功！最新版本號已更新為 ${data.version}`;
-          fileInput.value = "";
-          alert(`🎉 檔案 ${data.filename} 已成功上傳！\n最新版本號已更新為 ${data.version}`);
-          fetchClientFileInfo();
-          fetchApplications();
-        } catch (e) {
-          errorEl.textContent = "解析回應失敗：" + xhr.responseText;
-        }
-      } else {
-        let detail = xhr.responseText;
-        try {
-          const parsed = JSON.parse(xhr.responseText);
-          if (parsed && parsed.detail) detail = parsed.detail;
-        } catch (e) {}
-        errorEl.textContent = `上傳失敗 (${xhr.status})：${detail}`;
-        successEl.textContent = "";
-      }
-
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "上傳 Client 檔案並更新版本說明";
-        btn.style.opacity = "1";
-      }
-    };
-
-    xhr.onerror = () => {
-      errorEl.textContent = "網路傳輸發生錯誤，請檢查伺服器連線。";
-      successEl.textContent = "";
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "上傳 Client 檔案並更新版本說明";
-        btn.style.opacity = "1";
-      }
-    };
-
-    xhr.send(formData);
-  }
-
-  // ------------------------------------------------------
-  // YangEnx Internal.dll 專用頁面處理函式
-  // ------------------------------------------------------
-  async function fetchInternalFileInfo() {
-    const appId = document.getElementById("upload-internal-app-select") ? document.getElementById("upload-internal-app-select").value : "";
-    const infoEl = document.getElementById("current-internal-file-info");
-    const deleteBtn = document.getElementById("delete-internal-btn");
-    const changelogInput = document.getElementById("internal-changelog-input");
-    const stopToggle = document.getElementById("internal-stop-toggle");
-    const stopMsgInput = document.getElementById("internal-stop-message-input");
-
-    if (!infoEl) return;
-    if (!appId) { infoEl.textContent = "請先選擇應用程式"; return; }
-
-    try {
-      const info = await apiFetch(`/api/admin/apps/${appId}/internal-info`);
-      document.getElementById("internal-version-input").value = info.version || "v1.0.0";
-      if (changelogInput) changelogInput.value = info.changelog || "";
-      if (stopToggle) stopToggle.checked = !!info.stopped;
-      if (stopMsgInput) stopMsgInput.value = info.stop_message || "YangEnx Internal 停服維護中";
-
-      if (info.has_file) {
-        const sizeMb = (info.size / (1024 * 1024)).toFixed(2);
-        infoEl.innerHTML = `檔案名稱: <b>${escapeHtml(info.filename)}</b> | 容量: <b>${info.size} 位元組 (${sizeMb} MB)</b> | 最新版本號: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b>`;
-        if (deleteBtn) deleteBtn.style.display = "inline-block";
-      } else {
-        infoEl.innerHTML = `<span style="color:var(--amber);">尚未上傳 YangEnx Internal 檔案 (目前設定版本號: ${escapeHtml(info.version)})</span>`;
-        if (deleteBtn) deleteBtn.style.display = "none";
-      }
-    } catch (err) {
-      infoEl.textContent = "無法取得檔案資訊：" + err.message;
-      if (deleteBtn) deleteBtn.style.display = "none";
-    }
-  }
-
-  async function deleteInternalFile() {
-    const appId = document.getElementById("upload-internal-app-select").value;
-    if (!appId) return;
-
-    if (!confirm("確定要刪除已上傳的 YangEnx Internal 檔案與版本設定嗎？\n刪除後注入器將無法再下載此檔案。")) return;
-
-    try {
-      await apiFetch(`/api/admin/apps/${appId}/delete-internal`, { method: "DELETE" });
-      document.getElementById("internal-file-input").value = "";
-      document.getElementById("internal-changelog-input").value = "";
-      alert("🎉 已成功刪除 YangEnx Internal.dll 檔案與版本號！");
-      fetchInternalFileInfo();
-      fetchApplications();
-    } catch (err) {
-      alert("刪除失敗：" + err.message);
-    }
-  }
-
-  async function uploadInternalFile() {
-    const errorEl = document.getElementById("upload-internal-error");
-    const successEl = document.getElementById("upload-internal-success");
-    const btn = document.querySelector("button[onclick='uploadInternalFile()']");
-    
-    if (errorEl) errorEl.textContent = "";
-    if (successEl) successEl.textContent = "";
-
-    const appId = document.getElementById("upload-internal-app-select").value;
-    const fileInput = document.getElementById("internal-file-input");
-    const version = document.getElementById("internal-version-input").value.trim();
-    const changelog = document.getElementById("internal-changelog-input").value.trim();
-    const stopped = document.getElementById("internal-stop-toggle") ? document.getElementById("internal-stop-toggle").checked : false;
-    const stopMessage = document.getElementById("internal-stop-message-input") ? document.getElementById("internal-stop-message-input").value.trim() : "";
-
-    if (!appId) { if (errorEl) errorEl.textContent = "請先選擇應用程式"; return; }
-
-    const hasFile = fileInput.files && fileInput.files.length > 0;
-
-    // 先獨立儲存停服設定與版本號 / Changelog
-    try {
-      await apiFetch(`/api/admin/apps/${appId}/internal-settings`, {
-        method: "PUT",
-        body: JSON.stringify({
-          app_id: appId,
-          latest_version: version || "v1.0.0",
-          update_changelog: changelog,
-          stopped: stopped,
-          stop_message: stopMessage || "YangEnx Internal 停服維護中"
-        })
-      });
-    } catch (err) {
-      if (!hasFile) {
-        if (errorEl) errorEl.textContent = "儲存失敗：" + err.message;
-        return;
-      }
-    }
-
-    if (!hasFile) {
-      if (successEl) {
-        successEl.style.color = "var(--green)";
-        successEl.textContent = `⚙️ 已成功更新 YangEnx Internal 設定！(停服狀態: ${stopped ? '開啟' : '關閉'})`;
-      }
-      showToast("⚙️ 設定已成功儲存！");
-      fetchInternalFileInfo();
-      return;
-    }
-
-    const file = fileInput.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-    if (version) formData.append("version", version);
-    formData.append("changelog", changelog);
-
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = "上傳中，請稍候...";
-      btn.style.opacity = "0.6";
-    }
-
-    const totalMb = (file.size / (1024 * 1024)).toFixed(2);
-    if (successEl) {
-      successEl.style.color = "var(--cyan)";
-      successEl.textContent = `⚡ 正在傳送檔案至伺服器... 0% (0.0 MB / ${totalMb} MB)`;
-    }
-
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", API_BASE + `/api/admin/apps/${appId}/upload-internal`, true);
-    xhr.setRequestHeader("X-Admin-Token", adminToken);
-
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable && successEl) {
-        const percent = Math.round((e.loaded / e.total) * 100);
-        const loadedMb = (e.loaded / (1024 * 1024)).toFixed(2);
-        successEl.textContent = `⚡ 正在傳送檔案至伺服器... ${percent}% (${loadedMb} MB / ${totalMb} MB)`;
-      }
-    };
-
-    xhr.onload = async () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          if (successEl) {
-            successEl.style.color = "var(--green)";
-            successEl.textContent = `🎉 檔案 ${data.filename} 上傳成功！最新版本號已更新為 ${data.version}`;
-          }
-          fileInput.value = "";
-          alert(`🎉 檔案 ${data.filename} 已成功上傳！\n最新版本號已更新為 ${data.version}`);
-          fetchInternalFileInfo();
-          fetchApplications();
-        } catch (e) {
-          if (errorEl) errorEl.textContent = "解析回應失敗：" + xhr.responseText;
-        }
-      } else {
-        let detail = xhr.responseText;
-        try {
-          const parsed = JSON.parse(xhr.responseText);
-          if (parsed && parsed.detail) detail = parsed.detail;
-        } catch (e) {}
-        if (errorEl) errorEl.textContent = `上傳失敗 (${xhr.status})：${detail}`;
-        if (successEl) successEl.textContent = "";
-      }
-
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "儲存設定 / 上傳檔案並更新說明";
-        btn.style.opacity = "1";
-      }
-    };
-
-    xhr.onerror = () => {
-      if (errorEl) errorEl.textContent = "網路傳輸發生錯誤，請檢查伺服器連線。";
-      if (successEl) successEl.textContent = "";
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "儲存設定 / 上傳檔案並更新說明";
-        btn.style.opacity = "1";
-      }
-    };
-
-    xhr.send(formData);
-  }
-
-  function showToast(msg) {
-    const t = document.getElementById("toast");
-    if (!t) return;
-    t.textContent = msg;
-    t.style.display = "block";
-    t.style.opacity = "1";
-    clearTimeout(window._toastTimer);
-    window._toastTimer = setTimeout(() => {
-      t.style.opacity = "0";
-      setTimeout(() => { t.style.display = "none"; }, 300);
-    }, 2200);
-  }
-
-  function copySnippet(name, ownerId, secret) {
-    const code = `YangEnxApi.Init(\n    appName: "${name}",\n    ownerId: "${ownerId}",\n    appSecret: "${secret}",\n    version: Program.Version\n);`;
-    copyToClipboard(code, false);
-    showToast("📋 已複製 C# 初始化程式碼！");
-  }
-
-  function toggleSecret(appId) {
-    if (visibleSecrets.has(appId)) visibleSecrets.delete(appId);
-    else visibleSecrets.add(appId);
+  function toggleSecret(id) {
+    if (visibleSecrets.has(id)) visibleSecrets.delete(id);
+    else visibleSecrets.add(id);
     renderApplications();
   }
 
-  async function copyToClipboard(text, notify = true) {
-    try {
-      await navigator.clipboard.writeText(text);
-      if (notify) showToast("📋 已成功複製至剪貼簿！");
-    } catch (err) {
-      // 部分瀏覽器/非 HTTPS 環境下 clipboard API 可能無法使用，靜默失敗即可
-    }
-  }
-
   async function createApplication() {
-    const errorEl = document.getElementById("app-create-error");
-    errorEl.textContent = "";
-    const nameInput = document.getElementById("new-app-name");
-    const name = nameInput.value.trim();
-    if (!name) { errorEl.textContent = "請輸入應用程式名稱"; return; }
-
+    const name = document.getElementById("new-app-name").value.trim();
+    if (!name) return;
     try {
       await apiFetch("/api/admin/apps", { method: "POST", body: JSON.stringify({ name }) });
-      nameInput.value = "";
-      await fetchApplications();
+      document.getElementById("new-app-name").value = "";
+      fetchApplications();
+      showToast("🎉 成功新增應用程式！");
     } catch (err) {
-      errorEl.textContent = "建立失敗：" + err.message;
+      document.getElementById("app-create-error").textContent = err.message;
     }
   }
 
   async function rotateAppSecret(appId) {
-    if (!confirm("確定要重設這個應用程式的金鑰嗎？舊金鑰會立刻失效，所有還在用舊金鑰的軟體會需要更新後才能繼續驗證。")) return;
-    try {
-      await apiFetch(`/api/admin/apps/${appId}/rotate-secret`, { method: "PATCH" });
-      visibleSecrets.add(appId); // 重設後直接顯示新金鑰，方便馬上複製更新到程式裡
-      await fetchApplications();
-    } catch (err) {
-      alert("重設失敗：" + err.message);
-    }
+    if (!confirm("確定重設 App Secret？舊密鑰會立刻失效！")) return;
+    await apiFetch(`/api/admin/apps/${appId}/rotate-secret`, { method: "PATCH" });
+    visibleSecrets.add(appId);
+    fetchApplications();
   }
 
   async function deleteApplication(appId) {
-    if (!confirm("確定要刪除這個應用程式嗎？底下所有卡密會一併被永久刪除，此操作無法復原！")) return;
-    try {
-      await apiFetch(`/api/admin/apps/${appId}`, { method: "DELETE" });
-      await fetchApplications();
-    } catch (err) {
-      alert("刪除失敗：" + err.message);
-    }
+    if (!confirm("確定刪除此應用程式及其所有卡密？操作無法復原！")) return;
+    await apiFetch(`/api/admin/apps/${appId}`, { method: "DELETE" });
+    fetchApplications();
   }
 
-  // ------------------------------------------------------
-  // 卡密管理
-  // ------------------------------------------------------
+  // --- Keys Management ---
   async function fetchKeys() {
     try {
       const appId = document.getElementById("filter-app-id").value;
-      const path = appId ? `/api/admin/keys?app_id=${encodeURIComponent(appId)}` : "/api/admin/keys";
-      allKeys = await apiFetch(path);
+      const url = appId ? `/api/admin/keys?app_id=${encodeURIComponent(appId)}` : "/api/admin/keys";
+      allKeys = await apiFetch(url);
       await fetchOnline();
       renderStats();
       renderTable();
-    } catch (err) {
-      if (err.message === "UNAUTHORIZED") {
-        document.getElementById("login-error").textContent = "Token 錯誤，請重新輸入";
-      }
-    }
+    } catch (err) {}
   }
 
   async function fetchOnline() {
     try {
-      const online = await apiFetch("/api/admin/online");
-      onlineKeys = new Set(online.map(o => o.license_key));
-    } catch (err) {
-      // 在線清單抓取失敗不影響主要功能，靜默失敗即可
-    }
-  }
-
-  function keyDisplayStatus(key) {
-    if (key.status !== "active") return "disabled";
-    if (new Date(key.expires_at) < new Date()) return "expired";
-    return "active";
+      onlineUsersList = await apiFetch("/api/admin/online");
+      document.getElementById("stat-online").textContent = onlineUsersList.length;
+      renderOnlineTable();
+    } catch (err) {}
   }
 
   function renderStats() {
     const total = allKeys.length;
-    const active = allKeys.filter(k => keyDisplayStatus(k) === "active").length;
+    const active = allKeys.filter(k => k.status === "active" && new Date(k.expires_at) > new Date()).length;
     const expired = total - active;
     document.getElementById("stat-total").textContent = total;
     document.getElementById("stat-active").textContent = active;
     document.getElementById("stat-expired").textContent = expired;
-    document.getElementById("stat-online").textContent = onlineKeys.size;
   }
 
   function renderTable() {
     const q = document.getElementById("search-input").value.trim().toLowerCase();
     const tbody = document.getElementById("key-table-body");
-    const filtered = allKeys.filter(k =>
-      !q || k.license_key.toLowerCase().includes(q) || k.username.toLowerCase().includes(q)
-    );
+    const filtered = allKeys.filter(k => !q || k.license_key.toLowerCase().includes(q) || k.username.toLowerCase().includes(q));
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="9">沒有符合的密鑰</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="9">沒有符合的卡密</td></tr>`;
       return;
     }
 
+    const onlineSet = new Set(onlineUsersList.map(o => o.license_key));
     tbody.innerHTML = filtered.map(k => {
-      const status = keyDisplayStatus(k);
-      const badgeClass = status === "active" ? "badge-active" : (status === "expired" ? "badge-expired" : "badge-disabled");
-      const badgeText = status === "active" ? "啟用中" : (status === "expired" ? "已過期" : "已停用");
-      const expiryText = new Date(k.expires_at).toLocaleString("zh-TW", { hour12: false });
-      const hwidText = k.hwid ? `已綁定裝置` : `未綁定`;
-      const isOnline = onlineKeys.has(k.license_key);
-      const onlineHtml = isOnline
-        ? `<span class="online-dot on"><span class="dot"></span>在線</span>`
-        : `<span class="online-dot off"><span class="dot"></span>離線</span>`;
-      const appName = k.applications && k.applications.name ? k.applications.name : "-";
+      const isExpired = new Date(k.expires_at) < new Date();
+      const statusText = k.status !== "active" ? "已停用" : (isExpired ? "已過期" : "生效中");
+      const badgeClass = k.status === "active" && !isExpired ? "badge-active" : "badge-disabled";
+      const isOnline = onlineSet.has(k.license_key);
+      const appName = k.applications ? k.applications.name : "-";
 
       return `
         <tr>
-          <td data-label="ID">${k.id}</td>
-          <td class="key-cell" data-label="密鑰">
-            <div style="display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
-              <span style="user-select:all;">${k.license_key}</span>
-              <button class="icon-btn" title="複製密鑰" onclick="copyToClipboard('${k.license_key}')">📋</button>
-            </div>
-          </td>
-          <td data-label="應用程式">${escapeHtml(appName)}</td>
-          <td data-label="用戶名">${escapeHtml(k.username)}</td>
-          <td data-label="裝置"><span class="hwid-tag">${hwidText}</span></td>
-          <td data-label="連線">${onlineHtml}</td>
-          <td data-label="到期日">${expiryText}</td>
-          <td data-label="狀態"><span class="badge ${badgeClass}">${badgeText}</span></td>
-          <td data-label="操作">
+          <td>${k.id}</td>
+          <td class="key-cell">${k.license_key} <button class="icon-btn" onclick="copyToClipboard('${k.license_key}')">📋</button></td>
+          <td>${escapeHtml(appName)}</td>
+          <td>${escapeHtml(k.username)}</td>
+          <td><span class="hwid-tag">${k.hwid ? '已綁定 (' + k.max_devices + '台限額)' : '未綁定'}</span></td>
+          <td><span class="online-dot ${isOnline ? 'on' : 'off'}"><span class="dot"></span>${isOnline ? '在線' : '離線'}</span></td>
+          <td>${new Date(k.expires_at).toLocaleString("zh-TW")}</td>
+          <td><span class="badge ${badgeClass}">${statusText}</span></td>
+          <td>
             <div class="action-group">
               ${k.status === "active"
                 ? `<button class="btn btn-sm btn-amber" onclick="disableKey(${k.id})">停用</button>`
@@ -1403,12 +785,6 @@
     }).join("");
   }
 
-  function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
   function randomizeKey() {
     const seg = () => Math.random().toString(36).substring(2, 6).toUpperCase();
     document.getElementById("new-key").value = `${seg()}-${seg()}-${seg()}`;
@@ -1417,84 +793,163 @@
   function setExpiry(days) {
     const d = new Date();
     d.setDate(d.getDate() + days);
-    // datetime-local 需要 YYYY-MM-DDTHH:mm 格式 (本地時間，無時區)
     const pad = n => String(n).padStart(2, "0");
-    const val = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    document.getElementById("new-expiry").value = val;
+    document.getElementById("new-expiry").value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   async function createKey() {
-    const errorEl = document.getElementById("create-error");
-    errorEl.textContent = "";
-
     const appId = document.getElementById("new-key-app").value;
-    const licenseKey = document.getElementById("new-key").value.trim();
     const username = document.getElementById("new-username").value.trim();
-    const maxDevices = parseInt(document.getElementById("new-max-devices").value, 10) || 1;
     const expiryLocal = document.getElementById("new-expiry").value;
-
-    if (!appId) { errorEl.textContent = "請先建立並選擇一個應用程式"; return; }
-    if (!username) { errorEl.textContent = "請輸入用戶名"; return; }
-    if (!expiryLocal) { errorEl.textContent = "請選擇到期日"; return; }
-
+    const maxDevices = parseInt(document.getElementById("new-max-devices").value) || 1;
+    if (!appId || !username || !expiryLocal) {
+      document.getElementById("create-error").textContent = "請完整填寫應用程式、用戶名與到期日";
+      return;
+    }
     const payload = {
       app_id: appId,
       username,
       max_devices: maxDevices,
       expires_at: new Date(expiryLocal).toISOString(),
     };
+    const licenseKey = document.getElementById("new-key").value.trim();
     if (licenseKey) payload.license_key = licenseKey;
 
     try {
       await apiFetch("/api/admin/keys", { method: "POST", body: JSON.stringify(payload) });
       document.getElementById("new-key").value = "";
       document.getElementById("new-username").value = "";
-      document.getElementById("new-max-devices").value = "1";
-      document.getElementById("new-expiry").value = "";
       fetchKeys();
       showToast("🎉 成功新增卡密！");
     } catch (err) {
-      errorEl.textContent = "新增失敗：" + err.message;
+      document.getElementById("create-error").textContent = err.message;
     }
   }
 
-  async function disableKey(id) {
-    await apiFetch(`/api/admin/keys/${id}/disable`, { method: "PATCH" });
-    fetchKeys();
+  async function disableKey(id) { await apiFetch(`/api/admin/keys/${id}/disable`, { method: "PATCH" }); fetchKeys(); }
+  async function enableKey(id) { await apiFetch(`/api/admin/keys/${id}/enable`, { method: "PATCH" }); fetchKeys(); }
+  async function resetHwid(id) { if (confirm("重設裝置綁定？")) { await apiFetch(`/api/admin/keys/${id}/reset-hwid`, { method: "PATCH" }); fetchKeys(); } }
+  async function deleteKey(id) { if (confirm("刪除此卡密？")) { await apiFetch(`/api/admin/keys/${id}`, { method: "DELETE" }); fetchKeys(); } }
+
+  // --- Blacklists System ---
+  async function fetchBlacklists() {
+    try {
+      const appId = document.getElementById("blacklist-app-id").value;
+      const url = appId ? `/api/admin/blacklists?app_id=${encodeURIComponent(appId)}` : "/api/admin/blacklists";
+      const list = await apiFetch(url);
+      renderBlacklistTable(list);
+    } catch (err) {}
   }
 
-  async function enableKey(id) {
-    await apiFetch(`/api/admin/keys/${id}/enable`, { method: "PATCH" });
-    fetchKeys();
+  function renderBlacklistTable(list) {
+    const tbody = document.getElementById("blacklist-table-body");
+    if (list.length === 0) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">目前無封禁黑名單紀錄</td></tr>`;
+      return;
+    }
+    const appMap = new Map(allApps.map(a => [a.id, a.name]));
+    tbody.innerHTML = list.map(b => `
+      <tr>
+        <td>${b.id}</td>
+        <td><span class="badge ${b.app_id ? 'badge-active' : 'badge-disabled'}">${b.app_id ? escapeHtml(appMap.get(b.app_id) || b.app_id) : '全域'}</span></td>
+        <td><b>${b.type.toUpperCase()}</b></td>
+        <td style="font-family:monospace; color:var(--red);">${escapeHtml(b.value)}</td>
+        <td>${escapeHtml(b.reason || '-')}</td>
+        <td>${new Date(b.created_at).toLocaleString("zh-TW")}</td>
+        <td><button class="btn btn-sm btn-red" onclick="deleteBlacklist(${b.id})">解封解除</button></td>
+      </tr>
+    `).join("");
   }
 
-  async function resetHwid(id) {
-    if (!confirm("確定要重設這把密鑰的裝置綁定嗎？下次使用會綁定新裝置。")) return;
-    await apiFetch(`/api/admin/keys/${id}/reset-hwid`, { method: "PATCH" });
-    fetchKeys();
+  async function addBlacklist() {
+    const appId = document.getElementById("blacklist-app-id").value || null;
+    const type = document.getElementById("blacklist-type").value;
+    const value = document.getElementById("blacklist-value").value.trim();
+    const reason = document.getElementById("blacklist-reason").value.trim() || "管理者手動封禁";
+
+    if (!value) {
+      document.getElementById("blacklist-error").textContent = "請輸入 HWID 或 IP 位址";
+      return;
+    }
+    try {
+      const res = await apiFetch("/api/admin/blacklists", {
+        method: "POST",
+        body: JSON.stringify({ app_id: appId, type, value, reason })
+      });
+      document.getElementById("blacklist-value").value = "";
+      document.getElementById("blacklist-reason").value = "";
+      fetchBlacklists();
+      fetchKeys();
+      showToast(`🚫 成功封禁！已即時踢掉 ${res.kicked_count} 個線上連線`);
+    } catch (err) {
+      document.getElementById("blacklist-error").textContent = err.message;
+    }
   }
 
-  async function deleteKey(id) {
-    if (!confirm("確定要刪除這把密鑰嗎？此操作無法復原，使用中的軟體會在下次心跳檢查時立刻關閉。")) return;
-    await apiFetch(`/api/admin/keys/${id}`, { method: "DELETE" });
-    fetchKeys();
+  async function deleteBlacklist(id) {
+    if (!confirm("確定解除此黑名單？")) return;
+    await apiFetch(`/api/admin/blacklists/${id}`, { method: "DELETE" });
+    fetchBlacklists();
+    showToast("🔓 已解除封禁");
   }
 
-  // ------------------------------------------------------
-  // 維護模式
-  // ------------------------------------------------------
-  async function fetchMaintenanceSettings() {
-    const appId = document.getElementById("maintenance-app-select").value;
-    if (!appId) return; // 還沒有任何應用程式可以選
+  // --- Real-time Broadcast ---
+  async function sendBroadcast() {
+    const appId = document.getElementById("broadcast-app-id").value || null;
+    const level = document.getElementById("broadcast-level").value;
+    const title = document.getElementById("broadcast-title").value.trim();
+    const message = document.getElementById("broadcast-message").value.trim();
+
+    if (!title || !message) { alert("請填寫廣播標題與內容"); return; }
+
+    try {
+      const res = await apiFetch("/api/admin/broadcast", {
+        method: "POST",
+        body: JSON.stringify({ app_id: appId, level, title, message })
+      });
+      showToast(`📢 廣播成功！已推播給 ${res.pushed_count} 個線上用戶`);
+    } catch (err) {
+      alert("廣播失敗：" + err.message);
+    }
+  }
+
+  // --- Dynamic Memory Payload ---
+  async function fetchDynamicPayload() {
+    const appId = document.getElementById("dynamic-app-select").value;
+    if (!appId) return;
     try {
       const settings = await apiFetch(`/api/admin/settings?app_id=${encodeURIComponent(appId)}`);
-      document.getElementById("maintenance-toggle").checked = settings.maintenance_mode;
-      document.getElementById("maintenance-message").value = settings.maintenance_message;
-      document.getElementById("latest-version-input").value = settings.latest_version;
-      updateMaintenanceStatusTag(settings.maintenance_mode);
+      document.getElementById("dynamic-payload-input").value = settings.dynamic_payload || "";
+    } catch (err) {}
+  }
+
+  async function saveDynamicPayload() {
+    const appId = document.getElementById("dynamic-app-select").value;
+    const payload = document.getElementById("dynamic-payload-input").value;
+    if (!appId) return;
+    try {
+      await apiFetch(`/api/admin/apps/${appId}/dynamic-payload`, {
+        method: "PUT",
+        body: JSON.stringify({ app_id: appId, dynamic_payload: payload })
+      });
+      showToast("⚙️ 已成功更新動態記憶體 Payload 內容！");
     } catch (err) {
-      console.error("無法取得維護設定", err);
+      alert("儲存失敗：" + err.message);
     }
+  }
+
+  // --- Maintenance & Client Files ---
+  async function fetchMaintenanceSettings() {
+    const appId = document.getElementById("maintenance-app-select").value;
+    if (!appId) return;
+    try {
+      const s = await apiFetch(`/api/admin/settings?app_id=${encodeURIComponent(appId)}`);
+      document.getElementById("maintenance-toggle").checked = s.maintenance_mode;
+      document.getElementById("maintenance-message").value = s.maintenance_message;
+      document.getElementById("client-version-input").value = s.latest_version;
+      document.getElementById("client-changelog-input").value = s.update_changelog || "";
+      updateMaintenanceStatusTag(s.maintenance_mode);
+    } catch (err) {}
   }
 
   function updateMaintenanceStatusTag(isOn) {
@@ -1504,55 +959,131 @@
   }
 
   function onMaintenanceToggle() {
-    const isOn = document.getElementById("maintenance-toggle").checked;
-    updateMaintenanceStatusTag(isOn);
+    updateMaintenanceStatusTag(document.getElementById("maintenance-toggle").checked);
   }
 
   async function saveMaintenanceSettings() {
-    const errorEl = document.getElementById("maintenance-error");
-    errorEl.textContent = "";
-
     const appId = document.getElementById("maintenance-app-select").value;
-    if (!appId) { errorEl.textContent = "請先建立並選擇一個應用程式"; return; }
-
+    if (!appId) return;
     const isOn = document.getElementById("maintenance-toggle").checked;
-    const message = document.getElementById("maintenance-message").value.trim() || "卡密系統維護中";
-    const version = document.getElementById("latest-version-input").value.trim() || "v1.0.0";
-
-    if (isOn && !confirm("確定要開啟這個應用程式的維護模式嗎？該應用程式底下所有在線使用者會立刻被擋下。")) {
-        fetchMaintenanceSettings();
-        return;
-    }
+    const message = document.getElementById("maintenance-message").value.trim() || "維護中";
+    const version = document.getElementById("client-version-input").value.trim() || "v1.0.0";
 
     try {
-        await apiFetch("/api/admin/settings", {
-            method: "PUT",
-            body: JSON.stringify({
-                app_id: appId,
-                maintenance_mode: isOn,
-                maintenance_message: message,
-                latest_version: version
-            }),
-        });
-        showToast("⚙️ 設定已成功儲存！");
-        fetchKeys();
+      await apiFetch("/api/admin/settings", {
+        method: "PUT",
+        body: JSON.stringify({ app_id: appId, maintenance_mode: isOn, maintenance_message: message, latest_version: version })
+      });
+      showToast("⚙️ 維護設定儲存成功！");
+      fetchKeys();
     } catch (err) {
-        errorEl.textContent = "儲存失敗：" + err.message;
+      document.getElementById("maintenance-error").textContent = err.message;
     }
-}
+  }
 
-  // Enter 鍵登入
-  document.getElementById("admin-token-input").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") login();
-  });
+  async function fetchClientFileInfo() {
+    const appId = document.getElementById("maintenance-app-select").value;
+    const infoEl = document.getElementById("current-client-file-info");
+    if (!appId || !infoEl) return;
+    try {
+      const info = await apiFetch(`/api/admin/apps/${appId}/client-info`);
+      if (info.has_file) {
+        infoEl.innerHTML = `檔案: <b>Client.dll</b> (${(info.size / 1024 / 1024).toFixed(2)} MB) | 最新版本: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b>`;
+      } else {
+        infoEl.innerHTML = `<span style="color:var(--amber);">尚未上傳 Client.dll 檔案 (目前版本號: ${escapeHtml(info.version)})</span>`;
+      }
+    } catch (err) {}
+  }
 
-  // 每 10 秒自動刷新列表 (面板開著時保持最新狀態)
-  setInterval(() => {
-    if (adminToken) fetchKeys();
-  }, 10000);
+  async function uploadClientFile() {
+    const appId = document.getElementById("maintenance-app-select").value;
+    const fileInput = document.getElementById("client-file-input");
+    const version = document.getElementById("client-version-input").value.trim();
+    const changelog = document.getElementById("client-changelog-input").value.trim();
+
+    if (!appId || !fileInput.files.length) { alert("請選擇 Client.dll 檔案"); return; }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+    if (version) formData.append("version", version);
+    formData.append("changelog", changelog);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", API_BASE + `/api/admin/apps/${appId}/upload-client`, true);
+    xhr.setRequestHeader("X-Admin-Token", adminToken);
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        showToast("🎉 Client.dll 上傳成功！");
+        fileInput.value = "";
+        fetchClientFileInfo();
+      } else alert("上傳失敗：" + xhr.responseText);
+    };
+    xhr.send(formData);
+  }
+
+  function renderOnlineTable() {
+    const tbody = document.getElementById("online-table-body");
+    if (onlineUsersList.length === 0) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">目前無使用者連線中</td></tr>`;
+      return;
+    }
+    const appMap = new Map(allApps.map(a => [a.id, a.name]));
+    tbody.innerHTML = onlineUsersList.map(u => `
+      <tr>
+        <td class="key-cell">${u.license_key}</td>
+        <td>${escapeHtml(appMap.get(u.app_id) || u.app_id)}</td>
+        <td>${escapeHtml(u.username)}</td>
+        <td><span class="hwid-tag">${u.hwid || '-'}</span></td>
+        <td>${u.ip || '-'}</td>
+        <td>${new Date(u.connected_at).toLocaleString("zh-TW")}</td>
+        <td>
+          ${u.hwid ? `<button class="btn btn-sm btn-red" onclick="quickBlacklist('${u.app_id}', 'hwid', '${u.hwid}')">封禁 HWID</button>` : ''}
+          ${u.ip ? `<button class="btn btn-sm btn-red" onclick="quickBlacklist('${u.app_id}', 'ip', '${u.ip}')">封禁 IP</button>` : ''}
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  async function quickBlacklist(appId, type, value) {
+    if (!confirm(`確定要封禁此 ${type.toUpperCase()}: ${value}？`)) return;
+    await apiFetch("/api/admin/blacklists", {
+      method: "POST",
+      body: JSON.stringify({ app_id: appId, type, value, reason: "線上監控一鍵封禁" })
+    });
+    fetchBlacklists();
+    fetchKeys();
+    showToast("🚫 封禁成功，已斷開連線！");
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.style.display = "block";
+    t.style.opacity = "1";
+    clearTimeout(window._t);
+    window._t = setTimeout(() => { t.style.opacity = "0"; setTimeout(() => t.style.display = "none", 300); }, 2500);
+  }
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function copySnippet(name, ownerId, secret) {
+    const code = `// YangEnx C# Client SDK 初始化範例\nvar client = new YangEnxClient(\n    appName: "${name}",\n    ownerId: "${ownerId}",\n    appSecret: "${secret}",\n    version: "v1.0.0"\n);\n\nvar response = await client.VerifyAsync("LICENSE-KEY-HERE", HWID);`
+    navigator.clipboard.writeText(code);
+    showToast("📋 已複製 C# 初始化代碼！");
+  }
+
+  function copyToClipboard(text) {
+    navigator.clipboard.writeText(text);
+    showToast("📋 已複製至剪貼簿！");
+  }
+
+  document.getElementById("admin-token-input").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+  setInterval(() => { if (adminToken) fetchKeys(); }, 8000);
 </script>
-
-<!-- Toast 提示訊息框 -->
-<div id="toast" style="position:fixed; bottom:24px; right:24px; background:#111118; border:1px solid var(--cyan); color:var(--text); padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,0.5); display:none; z-index:9999; transition:all 0.3s ease;"></div>
 </body>
 </html>
