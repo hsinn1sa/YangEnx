@@ -6,9 +6,9 @@
 <title>YangEnx 授權管理後台</title>
 <style>
   :root {
-    --bg: #0a0a0f;
-    --panel: #111118;
-    --panel-border: #22222e;
+    --bg: #07070b;
+    --panel: rgba(15, 15, 23, 0.75);
+    --panel-border: rgba(168, 85, 247, 0.2);
     --cyan: #22d3ee;
     --purple: #a855f7;
     --text: #e8e8f0;
@@ -22,9 +22,11 @@
     margin: 0;
     background: var(--bg);
     background-image:
-      linear-gradient(rgba(34,211,238,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(34,211,238,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
+      radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.15) 0%, transparent 40%),
+      radial-gradient(circle at 20% 80%, rgba(34, 211, 238, 0.1) 0%, transparent 40%),
+      linear-gradient(rgba(34,211,238,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34,211,238,0.02) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
     color: var(--text);
     font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
     min-height: 100vh;
@@ -42,9 +44,11 @@
   .login-box {
     width: 360px;
     background: var(--panel);
+    backdrop-filter: blur(16px);
     border: 1px solid var(--panel-border);
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 32px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   }
   .login-box h1 { font-size: 20px; margin: 0 0 4px; }
   .login-box .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; }
@@ -53,16 +57,17 @@
 
   /* ---------------- Shared form controls ---------------- */
   input, select, textarea {
-    background: #0d0d14;
+    background: rgba(13, 13, 20, 0.85);
     border: 1px solid var(--panel-border);
-    border-radius: 6px;
+    border-radius: 8px;
     color: var(--text);
     padding: 10px 12px;
     font-size: 14px;
     outline: none;
     color-scheme: dark;
+    backdrop-filter: blur(8px);
   }
-  input:focus, select:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 10px rgba(34, 211, 238, 0.3); }
+  input:focus, select:focus, textarea:focus { border-color: var(--purple); box-shadow: 0 0 12px rgba(168, 85, 247, 0.4); }
   input::placeholder, textarea::placeholder { color: #4d4d5e; }
   label {
     display: block;
@@ -74,7 +79,7 @@
   }
   .btn {
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 10px 18px;
     font-size: 14px;
     font-weight: 600;
@@ -83,14 +88,29 @@
     transition: all 0.2s;
   }
   .btn-gradient { background: linear-gradient(90deg, var(--purple), var(--cyan)); }
-  .btn-gradient:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 0 15px rgba(34, 211, 238, 0.4); }
-  .btn-ghost { background: #1a1a24; color: var(--text-dim); }
+  .btn-gradient:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 0 15px rgba(168, 85, 247, 0.5); }
+  .btn-ghost { background: rgba(26, 26, 36, 0.8); color: var(--text-dim); }
   .btn-ghost:hover { color: var(--text); }
-  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 5px; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 6px; }
   .btn-blue { background: #2563eb33; color: #60a5fa; border: 1px solid #2563eb55; }
   .btn-amber { background: #f0b42933; color: var(--amber); border: 1px solid #f0b42955; }
   .btn-gray { background: #33333f; color: #c0c0d0; border: 1px solid #44445a; }
   .btn-red { background: #f1466833; color: var(--red); border: 1px solid #f1466855; }
+
+  /* ---------------- Sweeping Purple Light Arc (背景流光弧線) ---------------- */
+  .sweeping-light-arc {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 450px;
+    background: radial-gradient(ellipse at center, rgba(168, 85, 247, 0.25) 0%, rgba(168, 85, 247, 0.08) 45%, transparent 70%);
+    border-radius: 50%;
+    filter: blur(30px);
+    pointer-events: none;
+    z-index: 0;
+    transition: left 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 0.85;
+  }
 
   /* ---------------- App shell & Header ---------------- */
   #app { display: none; }
@@ -99,9 +119,9 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 32px;
-    background: rgba(17, 17, 24, 0.85);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--panel-border);
+    background: rgba(10, 10, 15, 0.6);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(168, 85, 247, 0.15);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -117,18 +137,23 @@
     cursor: pointer;
   }
 
-  /* ---------------- Navigation Tabs Bar with Light Beam ---------------- */
+  /* ---------------- Floating Glassmorphism Tab Bar Dock ---------------- */
   .nav-tabs-container {
-    background: var(--panel);
-    border-bottom: 1px solid var(--panel-border);
-    padding: 0 32px;
-    margin-bottom: 28px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    padding: 20px 32px 10px;
+    position: relative;
+    z-index: 10;
   }
   .nav-tabs-wrapper {
-    max-width: 1200px;
+    max-width: 1000px;
     margin: 0 auto;
     position: relative;
+    background: rgba(17, 17, 26, 0.65);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(168, 85, 247, 0.25);
+    border-radius: 16px;
+    padding: 6px 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1);
   }
   .nav-tabs {
     display: flex;
@@ -137,13 +162,15 @@
     scrollbar-width: none;
     position: relative;
     z-index: 2;
+    cursor: grab;
   }
+  .nav-tabs:active { cursor: grabbing; }
   .nav-tabs::-webkit-scrollbar { display: none; }
   .tab-btn {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 16px 24px;
+    padding: 12px 20px;
     background: transparent;
     border: none;
     color: var(--text-dim);
@@ -154,29 +181,27 @@
     white-space: nowrap;
     position: relative;
     z-index: 3;
+    border-radius: 10px;
   }
-  .tab-btn:hover {
-    color: var(--text);
-  }
+  .tab-btn:hover { color: var(--text); }
   .tab-btn.active {
     color: #ffffff;
-    text-shadow: 0 0 10px #22d3ee, 0 0 20px #a855f7;
+    text-shadow: 0 0 12px rgba(168, 85, 247, 0.9), 0 0 20px rgba(34, 211, 238, 0.8);
   }
 
   /* Dynamic Sliding Light Beam Line */
   .light-beam {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 130px;
-    height: 4px;
-    background: linear-gradient(90deg, #a855f7, #22d3ee, #a855f7);
-    border-radius: 4px 4px 0 0;
+    bottom: 4px;
+    left: 8px;
+    width: 120px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--purple), var(--cyan), var(--purple));
+    border-radius: 4px;
     box-shadow:
-      0 0 10px #22d3ee,
+      0 0 10px #a855f7,
       0 0 20px #22d3ee,
-      0 0 35px #a855f7,
-      0 -6px 20px rgba(34, 211, 238, 0.8);
+      0 -4px 15px rgba(168, 85, 247, 0.8);
     z-index: 4;
     transition: left 0.35s cubic-bezier(0.25, 1, 0.5, 1), width 0.35s cubic-bezier(0.25, 1, 0.5, 1);
     pointer-events: none;
@@ -187,19 +212,26 @@
     position: absolute;
     top: 6px;
     bottom: 6px;
-    left: 0;
-    width: 130px;
-    background: linear-gradient(90deg, rgba(168, 85, 247, 0.2), rgba(34, 211, 238, 0.25));
-    border: 1px solid rgba(34, 211, 238, 0.5);
-    border-radius: 8px;
+    left: 8px;
+    width: 120px;
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(34, 211, 238, 0.2));
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    border-radius: 10px;
     z-index: 1;
     transition: left 0.35s cubic-bezier(0.25, 1, 0.5, 1), width 0.35s cubic-bezier(0.25, 1, 0.5, 1);
     pointer-events: none;
-    box-shadow: 0 0 20px rgba(34, 211, 238, 0.3), inset 0 0 10px rgba(34, 211, 238, 0.2);
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3), inset 0 0 12px rgba(255, 255, 255, 0.1);
   }
 
   /* ---------------- Main Content & Directional Transitions ---------------- */
-  main { max-width: 1200px; margin: 0 auto; padding: 0 32px 48px; position: relative; }
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 32px 48px;
+    position: relative;
+    z-index: 2;
+    touch-action: pan-y;
+  }
 
   .tab-content {
     display: none;
@@ -209,37 +241,16 @@
     display: block;
   }
 
-  .slide-from-right {
-    animation: slideRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-  .slide-from-left {
-    animation: slideLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
+  .slide-from-right { animation: slideRight 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .slide-from-left { animation: slideLeft 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
   @keyframes slideRight {
-    0% {
-      opacity: 0;
-      transform: translateX(60px);
-      filter: blur(4px);
-    }
-    100% {
-      opacity: 1;
-      transform: translateX(0);
-      filter: blur(0);
-    }
+    0% { opacity: 0; transform: translateX(70px) scale(0.97); filter: blur(6px); }
+    100% { opacity: 1; transform: translateX(0) scale(1); filter: blur(0); }
   }
-
   @keyframes slideLeft {
-    0% {
-      opacity: 0;
-      transform: translateX(-60px);
-      filter: blur(4px);
-    }
-    100% {
-      opacity: 1;
-      transform: translateX(0);
-      filter: blur(0);
-    }
+    0% { opacity: 0; transform: translateX(-70px) scale(0.97); filter: blur(6px); }
+    100% { opacity: 1; transform: translateX(0) scale(1); filter: blur(0); }
   }
 
   /* ---------------- Stat cards ---------------- */
@@ -251,10 +262,12 @@
   }
   .stat-card {
     background: var(--panel);
+    backdrop-filter: blur(16px);
     border: 1px solid var(--panel-border);
     border-left: 4px solid var(--cyan);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 18px 20px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   }
   .stat-card.total { border-left-color: var(--purple); }
   .stat-card.active { border-left-color: var(--green); }
@@ -284,20 +297,22 @@
   .online-dot.on { color: var(--green); }
   .online-dot.off { color: var(--text-dim); }
 
-  /* ---------------- Panels ---------------- */
+  /* ---------------- Translucent Panels ---------------- */
   .panel {
     background: var(--panel);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--panel-border);
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   }
   .panel h2 {
     font-size: 16px;
     margin: 0 0 20px;
     padding-left: 10px;
-    border-left: 3px solid var(--cyan);
+    border-left: 3px solid var(--purple);
   }
   .form-grid {
     display: grid;
@@ -334,10 +349,10 @@
   }
   tbody td {
     padding: 14px 12px;
-    border-bottom: 1px solid #1a1a24;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     vertical-align: middle;
   }
-  tbody tr:hover { background: #14141d; }
+  tbody tr:hover { background: rgba(168, 85, 247, 0.06); }
   .key-cell { color: var(--purple); font-weight: 600; font-family: monospace; }
   .badge {
     display: inline-block;
@@ -359,9 +374,9 @@
   .app-create-row input { width: 220px; }
   .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
   .app-card {
-    background: #0d0d14;
+    background: rgba(13, 13, 20, 0.8);
     border: 1px solid var(--panel-border);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 16px 18px;
   }
   .app-card-name { font-size: 15px; font-weight: 700; margin-bottom: 12px; word-break: break-all; }
@@ -372,7 +387,7 @@
   }
   .app-field-value {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    background: #08080d; border: 1px solid var(--panel-border); border-radius: 6px;
+    background: rgba(8, 8, 13, 0.9); border: 1px solid var(--panel-border); border-radius: 6px;
     padding: 8px 10px; font-family: monospace; font-size: 12.5px;
     color: var(--text);
   }
@@ -387,7 +402,7 @@
 
   @media (max-width: 768px) {
     header { padding: 16px 20px; }
-    .nav-tabs-container { padding: 0 16px; }
+    .nav-tabs-container { padding: 14px 16px 6px; }
     main { padding: 0 16px 32px; }
     .form-grid { grid-template-columns: 1fr; }
     .table-toolbar input, .table-toolbar select { width: 100%; }
@@ -409,15 +424,18 @@
 
 <!-- App Main Screen -->
 <div id="app">
+  <!-- Sweeping Purple Light Arc Background -->
+  <div class="sweeping-light-arc" id="sweeping-arc"></div>
+
   <header>
     <div class="logo">YANGENX</div>
     <button id="logout-btn" onclick="logout()">登出管理員</button>
   </header>
 
-  <!-- Dynamic Navigation Bar -->
+  <!-- Floating Glassmorphism Tab Bar Dock -->
   <div class="nav-tabs-container">
     <div class="nav-tabs-wrapper">
-      <div class="nav-tabs">
+      <div class="nav-tabs" id="tab-bar">
         <button class="tab-btn active" onclick="switchTab('dashboard', 0)">📊 總覽儀表板</button>
         <button class="tab-btn" onclick="switchTab('keys', 1)">🔑 卡密管理</button>
         <button class="tab-btn" onclick="switchTab('apps', 2)">📱 應用程式</button>
@@ -431,7 +449,7 @@
     </div>
   </div>
 
-  <main>
+  <main id="main-content">
     <!-- TAB 0: Dashboard (Overview & Online Users Monitor) -->
     <div id="tab-dashboard" class="tab-content active">
       <!-- Stats Cards -->
@@ -683,7 +701,7 @@
 
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
           <!-- Client.dll Upload -->
-          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
+          <div style="background:rgba(13, 13, 20, 0.8); border:1px solid var(--panel-border); border-radius:12px; padding:16px;">
             <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">Client.dll 上傳更新</h3>
             <div id="current-client-file-info" style="font-size:12px; margin-bottom:12px; color:var(--text-dim);">載入中...</div>
             <div style="margin-bottom:10px;">
@@ -704,7 +722,7 @@
           </div>
 
           <!-- Maintenance Settings -->
-          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
+          <div style="background:rgba(13, 13, 20, 0.8); border:1px solid var(--panel-border); border-radius:12px; padding:16px;">
             <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">維護模式與停服設定</h3>
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
               <span style="font-size:13px;">維護模式狀態</span>
@@ -739,11 +757,13 @@
   let onlineUsersList = [];
   let visibleSecrets = new Set();
   let currentTabIndex = 0;
+  const totalTabs = 7;
 
   // --- Tab Switching & Light Beam Slider Logic ---
   function updateLightBeamPosition(btn) {
     const lightBeam = document.getElementById("light-beam");
     const lightGlow = document.getElementById("light-beam-glow");
+    const arc = document.getElementById("sweeping-arc");
     if (!btn || !lightBeam || !lightGlow) return;
 
     const left = btn.offsetLeft;
@@ -754,6 +774,14 @@
 
     lightGlow.style.left = left + "px";
     lightGlow.style.width = width + "px";
+
+    // Sweeping Purple Arc position calculation
+    const windowWidth = window.innerWidth;
+    const tabCenter = left + width / 2;
+    const tabBarEl = document.getElementById("tab-bar");
+    const percent = tabCenter / (tabBarEl ? (tabBarEl.scrollWidth || windowWidth) : windowWidth);
+    const arcLeft = (percent * (windowWidth - 300)) - 75;
+    if (arc) arc.style.left = arcLeft + "px";
   }
 
   function switchTab(tabId, newIndex) {
@@ -772,6 +800,7 @@
     buttons.forEach(b => b.classList.remove("active"));
     targetBtn.classList.add("active");
 
+    targetBtn.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
     updateLightBeamPosition(targetBtn);
 
     contents.forEach(c => {
@@ -787,6 +816,90 @@
     if (activeBtn) {
       updateLightBeamPosition(activeBtn);
     }
+  }
+
+  // --- Touch & Mouse Gesture Drag System (左右滑動拖拽手勢引擎) ---
+  const mainContent = document.getElementById("main-content");
+  let startX = 0, startY = 0, distX = 0, distY = 0;
+  let isDragging = false;
+
+  mainContent.addEventListener("touchstart", (e) => {
+    const touch = e.touches[0];
+    startX = touch.clientX; startY = touch.clientY;
+    distX = 0; distY = 0;
+    isDragging = true;
+  }, { passive: true });
+
+  mainContent.addEventListener("touchmove", (e) => {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    distX = touch.clientX - startX;
+    distY = touch.clientY - startY;
+  }, { passive: true });
+
+  mainContent.addEventListener("touchend", () => {
+    if (!isDragging) return;
+    isDragging = false;
+    if (Math.abs(distX) > 50 && Math.abs(distX) > Math.abs(distY) * 1.2) {
+      if (distX < 0 && currentTabIndex < totalTabs - 1) {
+        const nextBtn = document.querySelectorAll(".tab-btn")[currentTabIndex + 1];
+        if (nextBtn) nextBtn.click();
+      } else if (distX > 0 && currentTabIndex > 0) {
+        const prevBtn = document.querySelectorAll(".tab-btn")[currentTabIndex - 1];
+        if (prevBtn) prevBtn.click();
+      }
+    }
+  });
+
+  let isMouseDown = false;
+  mainContent.addEventListener("mousedown", (e) => {
+    if (["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(e.target.tagName)) return;
+    isMouseDown = true;
+    startX = e.clientX; startY = e.clientY;
+    distX = 0; distY = 0;
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!isMouseDown) return;
+    distX = e.clientX - startX;
+    distY = e.clientY - startY;
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (!isMouseDown) return;
+    isMouseDown = false;
+    if (Math.abs(distX) > 60 && Math.abs(distX) > Math.abs(distY)) {
+      if (distX < 0 && currentTabIndex < totalTabs - 1) {
+        const nextBtn = document.querySelectorAll(".tab-btn")[currentTabIndex + 1];
+        if (nextBtn) nextBtn.click();
+      } else if (distX > 0 && currentTabIndex > 0) {
+        const prevBtn = document.querySelectorAll(".tab-btn")[currentTabIndex - 1];
+        if (prevBtn) prevBtn.click();
+      }
+    }
+  });
+
+  // Tab bar mouse drag horizontal scroll
+  const tabBar = document.getElementById("tab-bar");
+  let isTabBarMouseDown = false;
+  let tabBarStartX, tabBarScrollLeft;
+
+  if (tabBar) {
+    tabBar.addEventListener("mousedown", (e) => {
+      isTabBarMouseDown = true;
+      tabBarStartX = e.pageX - tabBar.offsetLeft;
+      tabBarScrollLeft = tabBar.scrollLeft;
+    });
+
+    tabBar.addEventListener("mouseleave", () => isTabBarMouseDown = false);
+    tabBar.addEventListener("mouseup", () => isTabBarMouseDown = false);
+    tabBar.addEventListener("mousemove", (e) => {
+      if (!isTabBarMouseDown) return;
+      e.preventDefault();
+      const x = e.pageX - tabBar.offsetLeft;
+      const walk = (x - tabBarStartX) * 1.5;
+      tabBar.scrollLeft = tabBarScrollLeft - walk;
+    });
   }
 
   // --- Admin Core Logic & Endpoints ---
@@ -1288,7 +1401,7 @@
 
   function escapeHtml(str) {
     if (!str) return "";
-    const div = document.createElement("div");
+    const div = document.getElementById("div") || document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
   }
