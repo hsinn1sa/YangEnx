@@ -988,6 +988,15 @@
     capsuleStartLeft = startBtnData.left;
   }
 
+  function resetDockWrapper() {
+    if (!dockWrapper) return;
+    dockWrapper.style.transition = 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.25)';
+    dockWrapper.style.transform = 'translateX(0px)';
+    setTimeout(() => {
+      dockWrapper.style.transition = '';
+    }, 450);
+  }
+
   function onPointerMove(e) {
     if (!isPointerDown) return;
     const deltaX = e.clientX - dragStartX;
@@ -1015,7 +1024,26 @@
 
       const maxLeft = btns[btns.length - 1].left;
       const rawTargetLeft = capsuleStartLeft + deltaX;
-      const currentTargetLeft = Math.max(-10, Math.min(maxLeft + 10, rawTargetLeft));
+
+      let currentTargetLeft = rawTargetLeft;
+      let dockShift = 0;
+
+      if (rawTargetLeft < 0) {
+        const overshoot = rawTargetLeft;
+        currentTargetLeft = Math.max(0, overshoot * 0.05);
+        dockShift = Math.max(-20, overshoot * 0.28);
+      } else if (rawTargetLeft > maxLeft) {
+        const overshoot = rawTargetLeft - maxLeft;
+        currentTargetLeft = maxLeft + Math.min(0, overshoot * 0.05);
+        dockShift = Math.min(20, overshoot * 0.28);
+      } else {
+        dockShift = 0;
+      }
+
+      if (dockWrapper) {
+        dockWrapper.style.transition = 'none';
+        dockWrapper.style.transform = `translateX(${dockShift}px)`;
+      }
 
       const wrapperRect = dockWrapper.getBoundingClientRect();
       const pointerX = e.clientX - wrapperRect.left + dockWrapper.scrollLeft;
@@ -1033,8 +1061,8 @@
 
       const currentWidth = btns[closestIdx] ? btns[closestIdx].width : btns[0].width;
 
-      const stretchX = Math.min(1.25, 1 + Math.abs(speed) * 0.012);
-      const squishY = Math.max(0.78, 1 - Math.abs(speed) * 0.009);
+      const stretchX = Math.min(1.22, 1 + Math.abs(speed) * 0.012);
+      const squishY = Math.max(0.8, 1 - Math.abs(speed) * 0.009);
 
       lightCapsule.style.transform = `translateX(${currentTargetLeft}px) scale(${stretchX}, ${squishY})`;
       lightCapsule.style.width = currentWidth + "px";
@@ -1055,6 +1083,8 @@
     if (dockWrapper && dockWrapper.releasePointerCapture && e.pointerId !== undefined) {
       try { dockWrapper.releasePointerCapture(e.pointerId); } catch (err) {}
     }
+
+    resetDockWrapper();
 
     const btns = getButtonData();
     if (!btns.length) return;
@@ -1101,6 +1131,7 @@
     if (isPointerDown || isDraggingDock) {
       isPointerDown = false;
       isDraggingDock = false;
+      resetDockWrapper();
       if (lightCapsule) lightCapsule.classList.remove("dragging");
       updateCapsulePosition(currentTabIndex, true);
     }
@@ -1108,6 +1139,7 @@
   window.addEventListener("pointercancel", () => {
     isPointerDown = false;
     isDraggingDock = false;
+    resetDockWrapper();
     if (lightCapsule) lightCapsule.classList.remove("dragging");
     updateCapsulePosition(currentTabIndex, true);
   });
