@@ -993,7 +993,7 @@
     if (dockWrapper) {
       dockWrapper.style.transformOrigin = 'center center';
       dockWrapper.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)';
-      dockWrapper.style.transform = 'scale(1.032)';
+      dockWrapper.style.transform = 'scale(1.018)';
     }
   }
 
@@ -1044,17 +1044,17 @@
           const overshoot = Math.abs(rawTargetLeft);
           currentTargetLeft = 0;
           dockWrapper.style.transformOrigin = 'right center';
-          const stretchX = 1.032 + Math.min(0.09, overshoot * 0.0016);
-          dockWrapper.style.transform = `scale(${stretchX}, 1.032)`;
+          const stretchX = 1.018 + Math.min(0.022, overshoot * 0.0004);
+          dockWrapper.style.transform = `scale(${stretchX}, 1.018)`;
         } else if (rawTargetLeft > maxLeft) {
           const overshoot = rawTargetLeft - maxLeft;
           currentTargetLeft = maxLeft;
           dockWrapper.style.transformOrigin = 'left center';
-          const stretchX = 1.032 + Math.min(0.09, overshoot * 0.0016);
-          dockWrapper.style.transform = `scale(${stretchX}, 1.032)`;
+          const stretchX = 1.018 + Math.min(0.022, overshoot * 0.0004);
+          dockWrapper.style.transform = `scale(${stretchX}, 1.018)`;
         } else {
           dockWrapper.style.transformOrigin = 'center center';
-          dockWrapper.style.transform = 'scale(1.032)';
+          dockWrapper.style.transform = 'scale(1.018)';
         }
       }
 
