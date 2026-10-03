@@ -136,6 +136,9 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.2);
     user-select: none;
     -webkit-user-select: none;
+    transform-origin: center center;
+    will-change: transform;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .nav-tabs-wrapper:active { cursor: grabbing; }
 
@@ -986,12 +989,19 @@
     dragStartY = e.clientY;
     lastPointerX = e.clientX;
     capsuleStartLeft = startBtnData.left;
+
+    if (dockWrapper) {
+      dockWrapper.style.transformOrigin = 'center center';
+      dockWrapper.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)';
+      dockWrapper.style.transform = 'scale(1.032)';
+    }
   }
 
   function resetDockWrapper() {
     if (!dockWrapper) return;
+    dockWrapper.style.transformOrigin = 'center center';
     dockWrapper.style.transition = 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.25)';
-    dockWrapper.style.transform = 'translateX(0px)';
+    dockWrapper.style.transform = 'scale(1, 1)';
     setTimeout(() => {
       dockWrapper.style.transition = '';
     }, 450);
@@ -1007,6 +1017,7 @@
     if (!isDraggingDock) {
       if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
         isPointerDown = false;
+        resetDockWrapper();
         return;
       }
       if (Math.abs(deltaX) > 15) {
@@ -1026,23 +1037,25 @@
       const rawTargetLeft = capsuleStartLeft + deltaX;
 
       let currentTargetLeft = rawTargetLeft;
-      let dockShift = 0;
-
-      if (rawTargetLeft < 0) {
-        const overshoot = rawTargetLeft;
-        currentTargetLeft = Math.max(0, overshoot * 0.05);
-        dockShift = Math.max(-20, overshoot * 0.28);
-      } else if (rawTargetLeft > maxLeft) {
-        const overshoot = rawTargetLeft - maxLeft;
-        currentTargetLeft = maxLeft + Math.min(0, overshoot * 0.05);
-        dockShift = Math.min(20, overshoot * 0.28);
-      } else {
-        dockShift = 0;
-      }
 
       if (dockWrapper) {
         dockWrapper.style.transition = 'none';
-        dockWrapper.style.transform = `translateX(${dockShift}px)`;
+        if (rawTargetLeft < 0) {
+          const overshoot = Math.abs(rawTargetLeft);
+          currentTargetLeft = 0;
+          dockWrapper.style.transformOrigin = 'right center';
+          const stretchX = 1.032 + Math.min(0.09, overshoot * 0.0016);
+          dockWrapper.style.transform = `scale(${stretchX}, 1.032)`;
+        } else if (rawTargetLeft > maxLeft) {
+          const overshoot = rawTargetLeft - maxLeft;
+          currentTargetLeft = maxLeft;
+          dockWrapper.style.transformOrigin = 'left center';
+          const stretchX = 1.032 + Math.min(0.09, overshoot * 0.0016);
+          dockWrapper.style.transform = `scale(${stretchX}, 1.032)`;
+        } else {
+          dockWrapper.style.transformOrigin = 'center center';
+          dockWrapper.style.transform = 'scale(1.032)';
+        }
       }
 
       const wrapperRect = dockWrapper.getBoundingClientRect();
