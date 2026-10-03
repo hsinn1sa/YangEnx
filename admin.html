@@ -6,9 +6,9 @@
 <title>YangEnx 授權管理後台</title>
 <style>
   :root {
-    --bg: #07070b;
-    --panel: rgba(15, 15, 23, 0.75);
-    --panel-border: rgba(168, 85, 247, 0.2);
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --panel-border: #22222e;
     --cyan: #22d3ee;
     --purple: #a855f7;
     --text: #e8e8f0;
@@ -22,11 +22,9 @@
     margin: 0;
     background: var(--bg);
     background-image:
-      radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.15) 0%, transparent 40%),
-      radial-gradient(circle at 20% 80%, rgba(34, 211, 238, 0.1) 0%, transparent 40%),
-      linear-gradient(rgba(34,211,238,0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(34,211,238,0.02) 1px, transparent 1px);
-    background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+      linear-gradient(rgba(34,211,238,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34,211,238,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
     color: var(--text);
     font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
     min-height: 100vh;
@@ -44,11 +42,9 @@
   .login-box {
     width: 360px;
     background: var(--panel);
-    backdrop-filter: blur(16px);
     border: 1px solid var(--panel-border);
-    border-radius: 14px;
+    border-radius: 12px;
     padding: 32px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   }
   .login-box h1 { font-size: 20px; margin: 0 0 4px; }
   .login-box .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; }
@@ -57,17 +53,16 @@
 
   /* ---------------- Shared form controls ---------------- */
   input, select, textarea {
-    background: rgba(13, 13, 20, 0.85);
+    background: #0d0d14;
     border: 1px solid var(--panel-border);
-    border-radius: 8px;
+    border-radius: 6px;
     color: var(--text);
     padding: 10px 12px;
     font-size: 14px;
     outline: none;
     color-scheme: dark;
-    backdrop-filter: blur(8px);
   }
-  input:focus, select:focus, textarea:focus { border-color: var(--purple); box-shadow: 0 0 12px rgba(168, 85, 247, 0.4); }
+  input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
   input::placeholder, textarea::placeholder { color: #4d4d5e; }
   label {
     display: block;
@@ -79,38 +74,23 @@
   }
   .btn {
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 10px 18px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     color: #fff;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
   }
   .btn-gradient { background: linear-gradient(90deg, var(--purple), var(--cyan)); }
-  .btn-gradient:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 0 15px rgba(168, 85, 247, 0.5); }
-  .btn-ghost { background: rgba(26, 26, 36, 0.8); color: var(--text-dim); }
+  .btn-gradient:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-ghost { background: #1a1a24; color: var(--text-dim); }
   .btn-ghost:hover { color: var(--text); }
-  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 6px; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 5px; }
   .btn-blue { background: #2563eb33; color: #60a5fa; border: 1px solid #2563eb55; }
   .btn-amber { background: #f0b42933; color: var(--amber); border: 1px solid #f0b42955; }
   .btn-gray { background: #33333f; color: #c0c0d0; border: 1px solid #44445a; }
   .btn-red { background: #f1466833; color: var(--red); border: 1px solid #f1466855; }
-
-  /* ---------------- Sweeping Purple Light Arc (背景流光弧線) ---------------- */
-  .sweeping-light-arc {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    width: 450px;
-    background: radial-gradient(ellipse at center, rgba(168, 85, 247, 0.25) 0%, rgba(168, 85, 247, 0.08) 45%, transparent 70%);
-    border-radius: 50%;
-    filter: blur(30px);
-    pointer-events: none;
-    z-index: 0;
-    transition: left 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-    opacity: 0.85;
-  }
 
   /* ---------------- App shell & Header ---------------- */
   #app { display: none; }
@@ -119,9 +99,9 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 32px;
-    background: rgba(10, 10, 15, 0.6);
-    backdrop-filter: blur(16px);
-    border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+    background: rgba(17, 17, 24, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--panel-border);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -137,120 +117,129 @@
     cursor: pointer;
   }
 
-  /* ---------------- Floating Glassmorphism Tab Bar Dock ---------------- */
+  /* ---------------- Floating Translucent Glass Dock (去紫色、純淨冰霜透明 UI) ---------------- */
   .nav-tabs-container {
-    padding: 20px 32px 10px;
+    padding: 24px 32px 12px;
     position: relative;
-    z-index: 10;
+    z-index: 100;
   }
   .nav-tabs-wrapper {
-    max-width: 1000px;
+    max-width: 950px;
     margin: 0 auto;
     position: relative;
-    background: rgba(17, 17, 26, 0.65);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(168, 85, 247, 0.25);
-    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 40px;
     padding: 6px 8px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
+  .nav-tabs-wrapper:active { cursor: grabbing; }
+
   .nav-tabs {
     display: flex;
-    gap: 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
+    justify-content: space-around;
+    align-items: center;
     position: relative;
     z-index: 2;
-    cursor: grab;
+    overflow: hidden;
   }
-  .nav-tabs:active { cursor: grabbing; }
-  .nav-tabs::-webkit-scrollbar { display: none; }
+
   .tab-btn {
+    flex: 1;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 20px;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 14px;
     background: transparent;
     border: none;
     color: var(--text-dim);
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 600;
     cursor: pointer;
-    transition: color 0.3s ease, text-shadow 0.3s ease;
+    transition: color 0.25s ease;
     white-space: nowrap;
     position: relative;
     z-index: 3;
-    border-radius: 10px;
+    border-radius: 30px;
+    user-select: none;
   }
   .tab-btn:hover { color: var(--text); }
   .tab-btn.active {
     color: #ffffff;
-    text-shadow: 0 0 12px rgba(168, 85, 247, 0.9), 0 0 20px rgba(34, 211, 238, 0.8);
+    text-shadow: 0 0 10px rgba(34, 211, 238, 0.9);
   }
 
-  /* Dynamic Sliding Light Beam Line */
-  .light-beam {
-    position: absolute;
-    bottom: 4px;
-    left: 8px;
-    width: 120px;
-    height: 3px;
-    background: linear-gradient(90deg, var(--purple), var(--cyan), var(--purple));
-    border-radius: 4px;
-    box-shadow:
-      0 0 10px #a855f7,
-      0 0 20px #22d3ee,
-      0 -4px 15px rgba(168, 85, 247, 0.8);
-    z-index: 4;
-    transition: left 0.35s cubic-bezier(0.25, 1, 0.5, 1), width 0.35s cubic-bezier(0.25, 1, 0.5, 1);
-    pointer-events: none;
-  }
-
-  /* Dynamic Glowing Pill Background under active tab */
+  /* Q彈果凍動態伸縮膠囊 Pill (冰藍高質感) */
   .light-beam-glow {
     position: absolute;
     top: 6px;
     bottom: 6px;
-    left: 8px;
+    left: 0;
     width: 120px;
-    background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(34, 211, 238, 0.2));
-    border: 1px solid rgba(168, 85, 247, 0.4);
-    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(34, 211, 238, 0.22));
+    border: 1.5px solid var(--cyan);
+    border-radius: 30px;
     z-index: 1;
-    transition: left 0.35s cubic-bezier(0.25, 1, 0.5, 1), width 0.35s cubic-bezier(0.25, 1, 0.5, 1);
     pointer-events: none;
-    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3), inset 0 0 12px rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 0 15px rgba(34, 211, 238, 0.5),
+      inset 0 0 10px rgba(255, 255, 255, 0.25);
+    transform-origin: center center;
+    will-change: transform, width;
   }
 
-  /* ---------------- Main Content & Directional Transitions ---------------- */
+  .light-beam-glow::before {
+    content: "";
+    position: absolute;
+    top: -1.5px;
+    left: 15%;
+    right: 15%;
+    height: 3px;
+    background: var(--cyan);
+    border-radius: 3px;
+    box-shadow: 0 0 10px var(--cyan);
+  }
+
+  /* Jelly Bounce Animation Keyframes */
+  @keyframes jellyBounce {
+    0% { transform: scale(1.18, 0.85); }
+    40% { transform: scale(0.92, 1.1); }
+    70% { transform: scale(1.05, 0.95); }
+    100% { transform: scale(1, 1); }
+  }
+  .jelly-anim {
+    animation: jellyBounce 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.25);
+  }
+
+  /* ---------------- Main Content & Page Slide Transitions ---------------- */
   main {
-    max-width: 1100px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 0 32px 48px;
     position: relative;
     z-index: 2;
-    touch-action: pan-y;
   }
 
-  .tab-content {
-    display: none;
-    width: 100%;
-  }
-  .tab-content.active {
-    display: block;
-  }
+  .tab-content { display: none; width: 100%; }
+  .tab-content.active { display: block; }
 
-  .slide-from-right { animation: slideRight 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-  .slide-from-left { animation: slideLeft 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .slide-from-right { animation: slideRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .slide-from-left { animation: slideLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
   @keyframes slideRight {
-    0% { opacity: 0; transform: translateX(70px) scale(0.97); filter: blur(6px); }
-    100% { opacity: 1; transform: translateX(0) scale(1); filter: blur(0); }
+    0% { opacity: 0; transform: translateX(60px); filter: blur(4px); }
+    100% { opacity: 1; transform: translateX(0); filter: blur(0); }
   }
   @keyframes slideLeft {
-    0% { opacity: 0; transform: translateX(-70px) scale(0.97); filter: blur(6px); }
-    100% { opacity: 1; transform: translateX(0) scale(1); filter: blur(0); }
+    0% { opacity: 0; transform: translateX(-60px); filter: blur(4px); }
+    100% { opacity: 1; transform: translateX(0); filter: blur(0); }
   }
 
   /* ---------------- Stat cards ---------------- */
@@ -258,16 +247,14 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 16px;
-    margin-bottom: 24px;
+    margin-bottom: 28px;
   }
   .stat-card {
     background: var(--panel);
-    backdrop-filter: blur(16px);
     border: 1px solid var(--panel-border);
-    border-left: 4px solid var(--cyan);
-    border-radius: 12px;
+    border-left: 3px solid var(--cyan);
+    border-radius: 8px;
     padding: 18px 20px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   }
   .stat-card.total { border-left-color: var(--purple); }
   .stat-card.active { border-left-color: var(--green); }
@@ -297,22 +284,19 @@
   .online-dot.on { color: var(--green); }
   .online-dot.off { color: var(--text-dim); }
 
-  /* ---------------- Translucent Panels ---------------- */
+  /* ---------------- Panels ---------------- */
   .panel {
     background: var(--panel);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--panel-border);
-    border-radius: 14px;
+    border-radius: 10px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   }
   .panel h2 {
     font-size: 16px;
     margin: 0 0 20px;
     padding-left: 10px;
-    border-left: 3px solid var(--purple);
+    border-left: 3px solid var(--cyan);
   }
   .form-grid {
     display: grid;
@@ -349,10 +333,10 @@
   }
   tbody td {
     padding: 14px 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid #1a1a24;
     vertical-align: middle;
   }
-  tbody tr:hover { background: rgba(168, 85, 247, 0.06); }
+  tbody tr:hover { background: #14141d; }
   .key-cell { color: var(--purple); font-weight: 600; font-family: monospace; }
   .badge {
     display: inline-block;
@@ -374,9 +358,9 @@
   .app-create-row input { width: 220px; }
   .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
   .app-card {
-    background: rgba(13, 13, 20, 0.8);
+    background: #0d0d14;
     border: 1px solid var(--panel-border);
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 16px 18px;
   }
   .app-card-name { font-size: 15px; font-weight: 700; margin-bottom: 12px; word-break: break-all; }
@@ -387,7 +371,7 @@
   }
   .app-field-value {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    background: rgba(8, 8, 13, 0.9); border: 1px solid var(--panel-border); border-radius: 6px;
+    background: #08080d; border: 1px solid var(--panel-border); border-radius: 6px;
     padding: 8px 10px; font-family: monospace; font-size: 12.5px;
     color: var(--text);
   }
@@ -406,6 +390,7 @@
     main { padding: 0 16px 32px; }
     .form-grid { grid-template-columns: 1fr; }
     .table-toolbar input, .table-toolbar select { width: 100%; }
+    .tab-btn { font-size: 12px; padding: 10px 8px; }
   }
 </style>
 </head>
@@ -424,27 +409,24 @@
 
 <!-- App Main Screen -->
 <div id="app">
-  <!-- Sweeping Purple Light Arc Background -->
-  <div class="sweeping-light-arc" id="sweeping-arc"></div>
-
   <header>
     <div class="logo">YANGENX</div>
     <button id="logout-btn" onclick="logout()">登出管理員</button>
   </header>
 
-  <!-- Floating Glassmorphism Tab Bar Dock -->
+  <!-- Clean Translucent Dock (去紫色、純淨冰霜 UI) -->
   <div class="nav-tabs-container">
-    <div class="nav-tabs-wrapper">
+    <div class="nav-tabs-wrapper" id="dock-wrapper">
       <div class="nav-tabs" id="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('dashboard', 0)">📊 總覽儀表板</button>
-        <button class="tab-btn" onclick="switchTab('keys', 1)">🔑 卡密管理</button>
-        <button class="tab-btn" onclick="switchTab('apps', 2)">📱 應用程式</button>
-        <button class="tab-btn" onclick="switchTab('blacklist', 3)">🛡️ 黑名單系統</button>
-        <button class="tab-btn" onclick="switchTab('broadcast', 4)">📢 即時廣播</button>
-        <button class="tab-btn" onclick="switchTab('dynamic', 5)">⚡ 動態注入</button>
-        <button class="tab-btn" onclick="switchTab('maintenance', 6)">⚙️ 維護與熱更新</button>
+        <button class="tab-btn active" data-id="dashboard" data-index="0">📊 儀表板</button>
+        <button class="tab-btn" data-id="keys" data-index="1">🔑 卡密</button>
+        <button class="tab-btn" data-id="apps" data-index="2">📱 應用</button>
+        <button class="tab-btn" data-id="blacklist" data-index="3">🛡️ 黑名單</button>
+        <button class="tab-btn" data-id="broadcast" data-index="4">📢 廣播</button>
+        <button class="tab-btn" data-id="dynamic" data-index="5">⚡ 注入</button>
+        <button class="tab-btn" data-id="maintenance" data-index="6">⚙️ 維護與熱更新</button>
       </div>
-      <div class="light-beam" id="light-beam"></div>
+      <!-- Q彈果凍伸縮膠囊 Pill -->
       <div class="light-beam-glow" id="light-beam-glow"></div>
     </div>
   </div>
@@ -690,18 +672,18 @@
       </div>
     </div>
 
-    <!-- TAB 6: App Maintenance & DLL Updates -->
+    <!-- TAB 6: App Maintenance & DLL Updates (包含完整 Client.dll / YangEnx Internal Maxx / 維護模式 3大區塊) -->
     <div id="tab-maintenance" class="tab-content">
       <div class="panel">
         <h2>應用程式維護模式與檔案熱更新</h2>
         <div style="margin-bottom:20px;">
           <label>選擇應用程式</label>
-          <select id="maintenance-app-select" onchange="fetchMaintenanceSettings(); fetchClientFileInfo();"></select>
+          <select id="maintenance-app-select" onchange="fetchMaintenanceSettings(); fetchClientFileInfo(); fetchInternalFileInfo();"></select>
         </div>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-          <!-- Client.dll Upload -->
-          <div style="background:rgba(13, 13, 20, 0.8); border:1px solid var(--panel-border); border-radius:12px; padding:16px;">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px;">
+          <!-- Block 1: Client.dll Upload -->
+          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
             <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">Client.dll 上傳更新</h3>
             <div id="current-client-file-info" style="font-size:12px; margin-bottom:12px; color:var(--text-dim);">載入中...</div>
             <div style="margin-bottom:10px;">
@@ -721,8 +703,43 @@
             <div id="upload-client-error" style="font-size:12px; color:var(--red); margin-top:4px;"></div>
           </div>
 
-          <!-- Maintenance Settings -->
-          <div style="background:rgba(13, 13, 20, 0.8); border:1px solid var(--panel-border); border-radius:12px; padding:16px;">
+          <!-- Block 2: YangEnx Internal Maxx (Internal.dll) Upload & Stop Settings -->
+          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
+            <h3 style="font-size:14px; color:var(--purple); margin:0 0 12px;">YangEnx Internal Maxx (Internal.dll) 上傳與停服</h3>
+            <div id="current-internal-file-info" style="font-size:12px; margin-bottom:12px; color:var(--text-dim);">載入中...</div>
+            <div style="margin-bottom:10px;">
+              <label>Internal 最新版本號</label>
+              <input type="text" id="internal-version-input" placeholder="v1.0.0" style="width:100%;" />
+            </div>
+            <div style="margin-bottom:10px;">
+              <label>Internal 更新說明</label>
+              <textarea id="internal-changelog-input" rows="2" style="width:100%;"></textarea>
+            </div>
+            <div style="margin-bottom:12px;">
+              <label>選擇 Internal.dll 檔案</label>
+              <input type="file" id="internal-file-input" accept=".dll" style="width:100%;" />
+            </div>
+            <button class="btn btn-gradient" style="width:100%; margin-bottom:14px;" onclick="uploadInternalFile()">上傳 Internal.dll 並更新</button>
+
+            <div style="border-top:1px dashed var(--panel-border); padding-top:12px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <span style="font-size:13px;">Internal 停服開關</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="internal-stopped-toggle" onchange="onInternalStoppedToggle()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div id="internal-stop-status-tag" class="badge badge-active" style="margin-bottom:10px;">Internal 狀態：正常</div>
+              <div style="margin-bottom:10px;">
+                <label>Internal 停服提示訊息</label>
+                <input type="text" id="internal-stop-message" style="width:100%;" placeholder="YangEnx Internal 停服維護中" />
+              </div>
+              <button class="btn btn-ghost" style="width:100%;" onclick="saveInternalSettings()">儲存 Internal 設定</button>
+            </div>
+          </div>
+
+          <!-- Block 3: Maintenance Settings -->
+          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
             <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">維護模式與停服設定</h3>
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
               <span style="font-size:13px;">維護模式狀態</span>
@@ -758,148 +775,189 @@
   let visibleSecrets = new Set();
   let currentTabIndex = 0;
   const totalTabs = 7;
+  const tabIds = ['dashboard', 'keys', 'apps', 'blacklist', 'broadcast', 'dynamic', 'maintenance'];
 
-  // --- Tab Switching & Light Beam Slider Logic ---
-  function updateLightBeamPosition(btn) {
-    const lightBeam = document.getElementById("light-beam");
-    const lightGlow = document.getElementById("light-beam-glow");
-    const arc = document.getElementById("sweeping-arc");
-    if (!btn || !lightBeam || !lightGlow) return;
+  const dockWrapper = document.getElementById("dock-wrapper");
+  const lightCapsule = document.getElementById("light-beam-glow");
+  let buttons = [];
 
-    const left = btn.offsetLeft;
-    const width = btn.offsetWidth;
-
-    lightBeam.style.left = left + "px";
-    lightBeam.style.width = width + "px";
-
-    lightGlow.style.left = left + "px";
-    lightGlow.style.width = width + "px";
-
-    // Sweeping Purple Arc position calculation
-    const windowWidth = window.innerWidth;
-    const tabCenter = left + width / 2;
-    const tabBarEl = document.getElementById("tab-bar");
-    const percent = tabCenter / (tabBarEl ? (tabBarEl.scrollWidth || windowWidth) : windowWidth);
-    const arcLeft = (percent * (windowWidth - 300)) - 75;
-    if (arc) arc.style.left = arcLeft + "px";
+  function getButtonRects() {
+    if (!dockWrapper) return [];
+    buttons = Array.from(document.querySelectorAll(".tab-btn"));
+    const wrapperRect = dockWrapper.getBoundingClientRect();
+    return buttons.map(btn => {
+      const r = btn.getBoundingClientRect();
+      return {
+        left: r.left - wrapperRect.left,
+        width: r.width,
+        center: (r.left - wrapperRect.left) + r.width / 2,
+        btn: btn
+      };
+    });
   }
 
-  function switchTab(tabId, newIndex) {
-    if (newIndex === currentTabIndex) return;
+  let currentCapsuleX = 0;
 
-    const buttons = document.querySelectorAll(".tab-btn");
+  function setCapsuleTransform(x, width, scaleX = 1, scaleY = 1, animate = true) {
+    if (!lightCapsule) return;
+    if (animate) {
+      lightCapsule.style.transition = "transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.25), width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.25)";
+    } else {
+      lightCapsule.style.transition = "none";
+    }
+    lightCapsule.style.transform = `translateX(${x}px) scale(${scaleX}, ${scaleY})`;
+    lightCapsule.style.width = width + "px";
+    currentCapsuleX = x;
+  }
+
+  function switchTab(tabId, newIndex, animateCapsule = true) {
+    if (newIndex === currentTabIndex && animateCapsule) return;
+
+    buttons = Array.from(document.querySelectorAll(".tab-btn"));
     const contents = document.querySelectorAll(".tab-content");
-    const targetBtn = buttons[newIndex];
     const targetContent = document.getElementById("tab-" + tabId);
 
-    if (!targetBtn || !targetContent) return;
+    if (!targetContent) return;
 
     const isGoingRight = newIndex > currentTabIndex;
     const animClass = isGoingRight ? "slide-from-right" : "slide-from-left";
 
-    buttons.forEach(b => b.classList.remove("active"));
-    targetBtn.classList.add("active");
-
-    targetBtn.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-    updateLightBeamPosition(targetBtn);
-
-    contents.forEach(c => {
-      c.classList.remove("active", "slide-from-right", "slide-from-left");
+    buttons.forEach((b, i) => {
+      if (i === newIndex) b.classList.add("active");
+      else b.classList.remove("active");
     });
 
+    if (animateCapsule && lightCapsule) {
+      const rects = getButtonRects();
+      const targetRect = rects[newIndex];
+      if (targetRect) {
+        lightCapsule.classList.remove("jelly-anim");
+        void lightCapsule.offsetWidth;
+        setCapsuleTransform(targetRect.left, targetRect.width, 1, 1, true);
+        lightCapsule.classList.add("jelly-anim");
+        setTimeout(() => lightCapsule.classList.remove("jelly-anim"), 450);
+      }
+    }
+
+    contents.forEach(c => c.classList.remove("active", "slide-from-right", "slide-from-left"));
     targetContent.classList.add("active", animClass);
+
     currentTabIndex = newIndex;
   }
 
-  function initLightBeam() {
-    const activeBtn = document.querySelector(".tab-btn.active");
-    if (activeBtn) {
-      updateLightBeamPosition(activeBtn);
+  // --- Real-Time Jelly Drag & Snap Physics Engine ---
+  let isPointerDown = false;
+  let pointerStartX = 0;
+  let capsuleStartX = 0;
+  let lastPointerX = 0;
+  let isDraggingDock = false;
+
+  function onPointerDown(e) {
+    isPointerDown = true;
+    isDraggingDock = false;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    pointerStartX = clientX;
+    lastPointerX = clientX;
+
+    const rects = getButtonRects();
+    const activeRect = rects[currentTabIndex];
+    capsuleStartX = activeRect ? activeRect.left : 0;
+  }
+
+  function onPointerMove(e) {
+    if (!isPointerDown) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const deltaX = clientX - pointerStartX;
+    const speed = clientX - lastPointerX;
+    lastPointerX = clientX;
+
+    if (Math.abs(deltaX) > 4) {
+      isDraggingDock = true;
+    }
+
+    if (isDraggingDock) {
+      const rects = getButtonRects();
+      const currentTargetX = capsuleStartX + deltaX;
+      const currentWidth = rects[currentTabIndex] ? rects[currentTabIndex].width : 100;
+
+      // Jelly Stretch & Squish ratios
+      const stretchX = Math.min(1.22, 1 + Math.abs(speed) * 0.009);
+      const squishY = Math.max(0.82, 1 - Math.abs(speed) * 0.006);
+
+      setCapsuleTransform(currentTargetX, currentWidth, stretchX, squishY, false);
+
+      const capsuleCenter = currentTargetX + currentWidth / 2;
+      let closestIndex = currentTabIndex;
+      let minDistance = Infinity;
+
+      rects.forEach((r, idx) => {
+        const dist = Math.abs(r.center - capsuleCenter);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestIndex = idx;
+        }
+      });
+
+      buttons.forEach((b, i) => {
+        if (i === closestIndex) b.classList.add("active");
+        else b.classList.remove("active");
+      });
     }
   }
 
-  // --- Touch & Mouse Gesture Drag System (左右滑動拖拽手勢引擎) ---
-  const mainContent = document.getElementById("main-content");
-  let startX = 0, startY = 0, distX = 0, distY = 0;
-  let isDragging = false;
+  function onPointerUp() {
+    if (!isPointerDown) return;
+    isPointerDown = false;
 
-  mainContent.addEventListener("touchstart", (e) => {
-    const touch = e.touches[0];
-    startX = touch.clientX; startY = touch.clientY;
-    distX = 0; distY = 0;
-    isDragging = true;
-  }, { passive: true });
+    const rects = getButtonRects();
+    const currentWidth = rects[currentTabIndex] ? rects[currentTabIndex].width : 100;
+    const capsuleCenter = currentCapsuleX + currentWidth / 2;
 
-  mainContent.addEventListener("touchmove", (e) => {
-    if (!isDragging) return;
-    const touch = e.touches[0];
-    distX = touch.clientX - startX;
-    distY = touch.clientY - startY;
-  }, { passive: true });
+    let closestIndex = 0;
+    let minDistance = Infinity;
 
-  mainContent.addEventListener("touchend", () => {
-    if (!isDragging) return;
-    isDragging = false;
-    if (Math.abs(distX) > 50 && Math.abs(distX) > Math.abs(distY) * 1.2) {
-      if (distX < 0 && currentTabIndex < totalTabs - 1) {
-        const nextBtn = document.querySelectorAll(".tab-btn")[currentTabIndex + 1];
-        if (nextBtn) nextBtn.click();
-      } else if (distX > 0 && currentTabIndex > 0) {
-        const prevBtn = document.querySelectorAll(".tab-btn")[currentTabIndex - 1];
-        if (prevBtn) prevBtn.click();
+    rects.forEach((r, idx) => {
+      const dist = Math.abs(r.center - capsuleCenter);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestIndex = idx;
       }
-    }
-  });
-
-  let isMouseDown = false;
-  mainContent.addEventListener("mousedown", (e) => {
-    if (["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(e.target.tagName)) return;
-    isMouseDown = true;
-    startX = e.clientX; startY = e.clientY;
-    distX = 0; distY = 0;
-  });
-
-  window.addEventListener("mousemove", (e) => {
-    if (!isMouseDown) return;
-    distX = e.clientX - startX;
-    distY = e.clientY - startY;
-  });
-
-  window.addEventListener("mouseup", () => {
-    if (!isMouseDown) return;
-    isMouseDown = false;
-    if (Math.abs(distX) > 60 && Math.abs(distX) > Math.abs(distY)) {
-      if (distX < 0 && currentTabIndex < totalTabs - 1) {
-        const nextBtn = document.querySelectorAll(".tab-btn")[currentTabIndex + 1];
-        if (nextBtn) nextBtn.click();
-      } else if (distX > 0 && currentTabIndex > 0) {
-        const prevBtn = document.querySelectorAll(".tab-btn")[currentTabIndex - 1];
-        if (prevBtn) prevBtn.click();
-      }
-    }
-  });
-
-  // Tab bar mouse drag horizontal scroll
-  const tabBar = document.getElementById("tab-bar");
-  let isTabBarMouseDown = false;
-  let tabBarStartX, tabBarScrollLeft;
-
-  if (tabBar) {
-    tabBar.addEventListener("mousedown", (e) => {
-      isTabBarMouseDown = true;
-      tabBarStartX = e.pageX - tabBar.offsetLeft;
-      tabBarScrollLeft = tabBar.scrollLeft;
     });
 
-    tabBar.addEventListener("mouseleave", () => isTabBarMouseDown = false);
-    tabBar.addEventListener("mouseup", () => isTabBarMouseDown = false);
-    tabBar.addEventListener("mousemove", (e) => {
-      if (!isTabBarMouseDown) return;
-      e.preventDefault();
-      const x = e.pageX - tabBar.offsetLeft;
-      const walk = (x - tabBarStartX) * 1.5;
-      tabBar.scrollLeft = tabBarScrollLeft - walk;
+    const targetRect = rects[closestIndex];
+    if (targetRect && lightCapsule) {
+      lightCapsule.classList.remove("jelly-anim");
+      void lightCapsule.offsetWidth;
+      setCapsuleTransform(targetRect.left, targetRect.width, 1, 1, true);
+      lightCapsule.classList.add("jelly-anim");
+      setTimeout(() => lightCapsule.classList.remove("jelly-anim"), 450);
+
+      switchTab(tabIds[closestIndex], closestIndex, false);
+    }
+  }
+
+  function setupButtonListeners() {
+    buttons = Array.from(document.querySelectorAll(".tab-btn"));
+    buttons.forEach((btn, index) => {
+      btn.onclick = (e) => {
+        if (isDraggingDock) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        switchTab(tabIds[index], index, true);
+      };
     });
+  }
+
+  if (dockWrapper) {
+    dockWrapper.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("mousemove", onPointerMove);
+    window.addEventListener("mouseup", onPointerUp);
+
+    dockWrapper.addEventListener("touchstart", onPointerDown, { passive: true });
+    window.addEventListener("touchmove", onPointerMove, { passive: true });
+    window.addEventListener("touchend", onPointerUp);
   }
 
   // --- Admin Core Logic & Endpoints ---
@@ -943,6 +1001,7 @@
       updateAppSelects();
       fetchKeys();
       fetchBlacklists();
+      setupButtonListeners();
       setTimeout(initLightBeam, 50);
     } catch (err) {
       if (err.message !== "UNAUTHORIZED") {
@@ -1007,6 +1066,7 @@
     if (allApps.length > 0) {
       fetchMaintenanceSettings();
       fetchClientFileInfo();
+      fetchInternalFileInfo();
       fetchDynamicPayload();
     }
   }
@@ -1268,7 +1328,7 @@
     }
   }
 
-  // --- Maintenance & Client Files ---
+  // --- Maintenance & Client / YangEnx Internal Maxx Files ---
   async function fetchMaintenanceSettings() {
     const appId = document.getElementById("maintenance-app-select").value;
     if (!appId) return;
@@ -1284,6 +1344,7 @@
 
   function updateMaintenanceStatusTag(isOn) {
     const tag = document.getElementById("maintenance-status-tag");
+    if (!tag) return;
     tag.textContent = isOn ? "維護模式：開啟中" : "維護模式：關閉";
     tag.className = "badge " + (isOn ? "badge-disabled" : "badge-active");
   }
@@ -1351,6 +1412,96 @@
     xhr.send(formData);
   }
 
+  // --- YangEnx Internal Maxx (Internal.dll) Functions ---
+  async function fetchInternalFileInfo() {
+    const appId = document.getElementById("maintenance-app-select").value;
+    const infoEl = document.getElementById("current-internal-file-info");
+    if (!appId || !infoEl) return;
+    try {
+      const info = await apiFetch(`/api/admin/apps/${appId}/internal-info`);
+      document.getElementById("internal-version-input").value = info.version || "v1.0.0";
+      document.getElementById("internal-changelog-input").value = info.changelog || "";
+      document.getElementById("internal-stopped-toggle").checked = info.stopped || false;
+      document.getElementById("internal-stop-message").value = info.stop_message || "YangEnx Internal 停服維護中";
+      updateInternalStopStatusTag(info.stopped || false);
+
+      if (info.has_file) {
+        infoEl.innerHTML = `檔案: <b>YangEnx Internal.dll</b> (${(info.size / 1024 / 1024).toFixed(2)} MB) | 版本: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b> <button class="btn btn-sm btn-red" style="margin-left:8px;" onclick="deleteInternalFile()">刪除 Internal.dll</button>`;
+      } else {
+        infoEl.innerHTML = `<span style="color:var(--amber);">尚未上傳 YangEnx Internal.dll 檔案</span>`;
+      }
+    } catch (err) {}
+  }
+
+  function updateInternalStopStatusTag(isOn) {
+    const tag = document.getElementById("internal-stop-status-tag");
+    if (!tag) return;
+    tag.textContent = isOn ? "Internal 停服狀態：已停服" : "Internal 停服狀態：正常運作";
+    tag.className = "badge " + (isOn ? "badge-disabled" : "badge-active");
+  }
+
+  function onInternalStoppedToggle() {
+    updateInternalStopStatusTag(document.getElementById("internal-stopped-toggle").checked);
+  }
+
+  async function saveInternalSettings() {
+    const appId = document.getElementById("maintenance-app-select").value;
+    if (!appId) return;
+    const version = document.getElementById("internal-version-input").value.trim() || "v1.0.0";
+    const changelog = document.getElementById("internal-changelog-input").value.trim();
+    const stopped = document.getElementById("internal-stopped-toggle").checked;
+    const stopMessage = document.getElementById("internal-stop-message").value.trim() || "YangEnx Internal 停服維護中";
+
+    try {
+      await apiFetch(`/api/admin/apps/${appId}/internal-settings`, {
+        method: "PUT",
+        body: JSON.stringify({ latest_version: version, update_changelog: changelog, stopped, stop_message: stopMessage })
+      });
+      showToast("⚙️ 已儲存 YangEnx Internal Maxx 設定！");
+      fetchInternalFileInfo();
+    } catch (err) {
+      alert("儲存失敗：" + err.message);
+    }
+  }
+
+  async function uploadInternalFile() {
+    const appId = document.getElementById("maintenance-app-select").value;
+    const fileInput = document.getElementById("internal-file-input");
+    const version = document.getElementById("internal-version-input").value.trim();
+    const changelog = document.getElementById("internal-changelog-input").value.trim();
+
+    if (!appId || !fileInput.files.length) { alert("請選擇 YangEnx Internal.dll 檔案"); return; }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+    if (version) formData.append("version", version);
+    formData.append("changelog", changelog);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", API_BASE + `/api/admin/apps/${appId}/upload-internal`, true);
+    xhr.setRequestHeader("X-Admin-Token", adminToken);
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        showToast("🎉 YangEnx Internal.dll 上傳成功！");
+        fileInput.value = "";
+        fetchInternalFileInfo();
+      } else alert("上傳失敗：" + xhr.responseText);
+    };
+    xhr.send(formData);
+  }
+
+  async function deleteInternalFile() {
+    const appId = document.getElementById("maintenance-app-select").value;
+    if (!appId || !confirm("確定要刪除 YangEnx Internal.dll 檔案？")) return;
+    try {
+      await apiFetch(`/api/admin/apps/${appId}/delete-internal`, { method: "DELETE" });
+      showToast("🗑️ 已成功刪除 Internal.dll 檔案");
+      fetchInternalFileInfo();
+    } catch (err) {
+      alert("刪除失敗：" + err.message);
+    }
+  }
+
   function renderOnlineTable() {
     const tbody = document.getElementById("online-table-body");
     if (onlineUsersList.length === 0) {
@@ -1401,7 +1552,7 @@
 
   function escapeHtml(str) {
     if (!str) return "";
-    const div = document.getElementById("div") || document.createElement("div");
+    const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
   }
@@ -1417,6 +1568,7 @@
     showToast("📋 已複製至剪貼簿！");
   }
 
+  setupButtonListeners();
   document.getElementById("admin-token-input").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
   window.addEventListener("resize", initLightBeam);
   setInterval(() => { if (adminToken) fetchKeys(); }, 8000);
