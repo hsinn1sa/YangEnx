@@ -124,7 +124,7 @@
     z-index: 100;
   }
   .nav-tabs-wrapper {
-    max-width: 840px;
+    max-width: 860px;
     margin: 0 auto;
     position: relative;
     background: rgba(255, 255, 255, 0.04);
@@ -132,7 +132,7 @@
     -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 9999px;
-    padding: 4px 6px;
+    padding: 6px 8px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.2);
     user-select: none;
     -webkit-user-select: none;
@@ -154,12 +154,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 10px 14px;
+    gap: 8px;
+    padding: 12px 18px;
     background: transparent;
     border: none;
     color: rgba(255, 255, 255, 0.55);
-    font-size: 13.5px;
+    font-size: 14.5px;
     font-weight: 600;
     cursor: pointer;
     transition: color 0.25s ease, opacity 0.25s ease;
@@ -181,8 +181,8 @@
     flex-shrink: 0;
   }
   .tab-icon svg {
-    width: 17px;
-    height: 17px;
+    width: 19px;
+    height: 19px;
     stroke-width: 2.2;
     transition: transform 0.2s ease, stroke 0.2s ease;
   }
@@ -200,8 +200,8 @@
   /* 純淨中性冰霜高透光膠囊 Pill (極致清透玻璃質感) */
   .light-beam-glow {
     position: absolute;
-    top: 4px;
-    bottom: 4px;
+    top: 5px;
+    bottom: 5px;
     left: 0;
     width: 100px;
     background: rgba(255, 255, 255, 0.14);
@@ -242,15 +242,15 @@
     }
     .nav-tabs-container {
       position: fixed;
-      bottom: 16px;
+      bottom: 20px;
       left: 0;
       right: 0;
-      padding: 0 14px;
+      padding: 0 16px;
       z-index: 10000;
       pointer-events: none;
     }
     .nav-tabs-wrapper {
-      max-width: 440px;
+      max-width: 480px;
       width: 100%;
       margin: 0 auto;
       pointer-events: auto;
@@ -260,7 +260,7 @@
       -webkit-backdrop-filter: blur(24px);
       border: 1px solid rgba(255, 255, 255, 0.16);
       border-radius: 9999px;
-      padding: 4px;
+      padding: 6px;
       overflow: hidden;
       touch-action: none;
     }
@@ -270,7 +270,7 @@
       width: 100%;
     }
     .tab-btn {
-      padding: 9px 0;
+      padding: 12px 0;
       border-radius: 9999px;
       flex: 1;
     }
@@ -278,8 +278,8 @@
       display: none !important;
     }
     .tab-icon svg {
-      width: 20px !important;
-      height: 20px !important;
+      width: 23px !important;
+      height: 23px !important;
     }
     #main-content {
       padding: 0 12px 110px !important;
@@ -533,11 +533,7 @@
           <span class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></span>
           <span class="tab-text">廣播</span>
         </button>
-        <button class="tab-btn" data-id="dynamic" data-index="5" onclick="switchTab(5)">
-          <span class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
-          <span class="tab-text">注入</span>
-        </button>
-        <button class="tab-btn" data-id="maintenance" data-index="6" onclick="switchTab(6)">
+        <button class="tab-btn" data-id="maintenance" data-index="5" onclick="switchTab(5)">
           <span class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
           <span class="tab-text">維護與熱更新</span>
         </button>
@@ -770,22 +766,6 @@
       </div>
     </div>
 
-    <!-- TAB 5: Dynamic Memory Injection -->
-    <div id="tab-dynamic" class="tab-content">
-      <div class="panel">
-        <h2>動態記憶體 Key / 參數注入 (Dynamic Memory Injection)</h2>
-        <div style="margin-bottom:14px;">
-          <label>選擇目標應用程式</label>
-          <select id="dynamic-app-select" onchange="fetchDynamicPayload()"></select>
-        </div>
-        <div style="margin-bottom:14px;">
-          <label>動態注入內容 (JSON 或加密 Key 參數，連線驗證成功後直接回傳至記憶體)</label>
-          <textarea id="dynamic-payload-input" rows="4" style="width:100%; font-family:monospace;" placeholder='{"secret_key": "ABC123XYZ", "memory_offset": "0x7FFF00", "enable_feature_x": true}'></textarea>
-        </div>
-        <button class="btn btn-gradient" onclick="saveDynamicPayload()">儲存動態 Payload 內容</button>
-      </div>
-    </div>
-
     <!-- TAB 6: App Maintenance & DLL Updates (包含完整 Client.dll / YangEnx Internal Maxx / 維護模式 3大區塊) -->
     <div id="tab-maintenance" class="tab-content">
       <div class="panel">
@@ -890,8 +870,8 @@
   let currentTabIndex = 0;
   let touchStartTabIndex = 0;
   let currentCapsuleX = 0;
-  const totalTabs = 7;
-  const tabIds = ['dashboard', 'keys', 'apps', 'blacklist', 'broadcast', 'dynamic', 'maintenance'];
+  const totalTabs = 6;
+  const tabIds = ['dashboard', 'keys', 'apps', 'blacklist', 'broadcast', 'maintenance'];
   const dockWrapper = document.getElementById("dock-wrapper");
   const lightCapsule = document.getElementById("light-beam-glow");
 
@@ -949,7 +929,10 @@
 
   function switchTab(newIndex, animateCapsule = true) {
     if (newIndex < 0 || newIndex >= tabIds.length) return;
-    if (newIndex === currentTabIndex && animateCapsule && !isDraggingDock) return;
+    if (newIndex === currentTabIndex && animateCapsule && !isDraggingDock) {
+      updateCapsulePosition(newIndex, true);
+      return;
+    }
 
     const btns = document.querySelectorAll(".tab-btn");
     const contents = document.querySelectorAll(".tab-content");
@@ -1099,6 +1082,8 @@
       });
 
       switchTab(closestIdx, true);
+    } else {
+      updateCapsulePosition(currentTabIndex, true);
     }
   }
 
@@ -1118,6 +1103,21 @@
     dockWrapper.addEventListener("pointerup", onPointerUp);
     dockWrapper.addEventListener("pointercancel", onPointerUp);
   }
+
+  window.addEventListener("pointerup", () => {
+    if (isPointerDown || isDraggingDock) {
+      isPointerDown = false;
+      isDraggingDock = false;
+      if (lightCapsule) lightCapsule.classList.remove("dragging");
+      updateCapsulePosition(currentTabIndex, true);
+    }
+  });
+  window.addEventListener("pointercancel", () => {
+    isPointerDown = false;
+    isDraggingDock = false;
+    if (lightCapsule) lightCapsule.classList.remove("dragging");
+    updateCapsulePosition(currentTabIndex, true);
+  });
 
   setupButtonListeners();
 
@@ -1211,7 +1211,7 @@
   }
 
   function updateAppSelects() {
-    const ids = ["new-key-app", "filter-app-id", "maintenance-app-select", "blacklist-app-id", "broadcast-app-id", "dynamic-app-select"];
+    const ids = ["new-key-app", "filter-app-id", "maintenance-app-select", "blacklist-app-id", "broadcast-app-id"];
     ids.forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -1228,7 +1228,6 @@
       fetchMaintenanceSettings();
       fetchClientFileInfo();
       fetchInternalFileInfo();
-      fetchDynamicPayload();
     }
   }
 
@@ -1461,31 +1460,6 @@
       showToast(`📢 廣播成功！已推播給 ${res.pushed_count} 個線上用戶`);
     } catch (err) {
       alert("廣播失敗：" + err.message);
-    }
-  }
-
-  // --- Dynamic Memory Payload ---
-  async function fetchDynamicPayload() {
-    const appId = document.getElementById("dynamic-app-select").value;
-    if (!appId) return;
-    try {
-      const settings = await apiFetch(`/api/admin/settings?app_id=${encodeURIComponent(appId)}`);
-      document.getElementById("dynamic-payload-input").value = settings.dynamic_payload || "";
-    } catch (err) {}
-  }
-
-  async function saveDynamicPayload() {
-    const appId = document.getElementById("dynamic-app-select").value;
-    const payload = document.getElementById("dynamic-payload-input").value;
-    if (!appId) return;
-    try {
-      await apiFetch(`/api/admin/apps/${appId}/dynamic-payload`, {
-        method: "PUT",
-        body: JSON.stringify({ app_id: appId, dynamic_payload: payload })
-      });
-      showToast("⚙️ 已成功更新動態記憶體 Payload 內容！");
-    } catch (err) {
-      alert("儲存失敗：" + err.message);
     }
   }
 
