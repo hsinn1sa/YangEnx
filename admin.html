@@ -796,7 +796,13 @@
     });
   }
 
-  let currentCapsuleX = 0;
+  function getCurrentCapsuleLeft() {
+    const rects = getButtonRects();
+    if (rects && rects[currentTabIndex]) {
+      return rects[currentTabIndex].left;
+    }
+    return currentCapsuleX || 0;
+  }
 
   function setCapsuleTransform(x, width, scaleX = 1, scaleY = 1, animate = true) {
     if (!lightCapsule) return;
@@ -811,8 +817,6 @@
   }
 
   function switchTab(tabId, newIndex, animateCapsule = true) {
-    if (newIndex === currentTabIndex && animateCapsule) return;
-
     buttons = Array.from(document.querySelectorAll(".tab-btn"));
     const contents = document.querySelectorAll(".tab-content");
     const targetContent = document.getElementById("tab-" + tabId);
@@ -845,58 +849,69 @@
     currentTabIndex = newIndex;
   }
 
-  // --- Real-Time Jelly Drag & Snap Physics Engine ---
+  // --- Bulletproof Real-Time Jelly Drag & Snap Physics Engine ---
   let isPointerDown = false;
-  let pointerStartX = 0;
+  let isDraggingDock = false;
+  let pointerDownX = 0;
   let capsuleStartX = 0;
   let lastPointerX = 0;
-  let isDraggingDock = false;
+  const DRAG_THRESHOLD = 6;
 
   function onPointerDown(e) {
+    if (e.button !== undefined && e.button !== 0) return;
     isPointerDown = true;
     isDraggingDock = false;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    pointerStartX = clientX;
-    lastPointerX = clientX;
+    pointerDownX = e.clientX;
+    lastPointerX = e.clientX;
 
-    const rects = getButtonRects();
-    const activeRect = rects[currentTabIndex];
-    capsuleStartX = activeRect ? activeRect.left : 0;
+    // Lock initial drag start position to current active tab's exact left offset!
+    capsuleStartX = getCurrentCapsuleLeft();
+
+    if (dockWrapper && dockWrapper.setPointerCapture && e.pointerId !== undefined) {
+      try { dockWrapper.setPointerCapture(e.pointerId); } catch (err) {}
+    }
   }
 
   function onPointerMove(e) {
     if (!isPointerDown) return;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const deltaX = clientX - pointerStartX;
-    const speed = clientX - lastPointerX;
-    lastPointerX = clientX;
 
-    if (Math.abs(deltaX) > 4) {
+    const deltaX = e.clientX - pointerDownX;
+    const speed = e.clientX - lastPointerX;
+    lastPointerX = e.clientX;
+
+    if (!isDraggingDock && Math.abs(deltaX) > DRAG_THRESHOLD) {
       isDraggingDock = true;
+      if (lightCapsule) {
+        lightCapsule.style.transition = "none";
+        lightCapsule.classList.remove("jelly-anim");
+      }
     }
 
-    if (isDraggingDock) {
+    if (isDraggingDock && dockWrapper) {
       const rects = getButtonRects();
+      if (!rects.length) return;
+
       const currentTargetX = capsuleStartX + deltaX;
-      const currentWidth = rects[currentTabIndex] ? rects[currentTabIndex].width : 100;
 
-      // Jelly Stretch & Squish ratios
-      const stretchX = Math.min(1.22, 1 + Math.abs(speed) * 0.009);
-      const squishY = Math.max(0.82, 1 - Math.abs(speed) * 0.006);
-
-      setCapsuleTransform(currentTargetX, currentWidth, stretchX, squishY, false);
-
-      const capsuleCenter = currentTargetX + currentWidth / 2;
+      const tempCenter = currentTargetX + (rects[currentTabIndex] ? rects[currentTabIndex].width : 100) / 2;
       let closestIndex = currentTabIndex;
       let minDistance = Infinity;
 
       rects.forEach((r, idx) => {
-        const dist = Math.abs(r.center - capsuleCenter);
+        const dist = Math.abs(r.center - tempCenter);
         if (dist < minDistance) {
           minDistance = dist;
           closestIndex = idx;
         }
       });
+
+      const currentWidth = rects[closestIndex] ? rects[closestIndex].width : 100;
+
+      // Jelly Stretch & Squish ratios
+      const stretchX = Math.min(1.22, 1 + Math.abs(speed) * 0.008);
+      const squishY = Math.max(0.80, 1 - Math.abs(speed) * 0.006);
+
+      setCapsuleTransform(currentTargetX, currentWidth, stretchX, squishY, false);
 
       buttons.forEach((b, i) => {
         if (i === closestIndex) b.classList.add("active");
@@ -905,34 +920,32 @@
     }
   }
 
-  function onPointerUp() {
+  function onPointerUp(e) {
     if (!isPointerDown) return;
     isPointerDown = false;
 
-    const rects = getButtonRects();
-    const currentWidth = rects[currentTabIndex] ? rects[currentTabIndex].width : 100;
-    const capsuleCenter = currentCapsuleX + currentWidth / 2;
+    if (dockWrapper && dockWrapper.releasePointerCapture && e.pointerId !== undefined) {
+      try { dockWrapper.releasePointerCapture(e.pointerId); } catch (err) {}
+    }
 
-    let closestIndex = 0;
-    let minDistance = Infinity;
+    if (isDraggingDock && dockWrapper) {
+      const rects = getButtonRects();
+      if (rects.length) {
+        const tempCenter = currentCapsuleX + (rects[currentTabIndex] ? rects[currentTabIndex].width : 100) / 2;
+        let closestIndex = 0;
+        let minDistance = Infinity;
 
-    rects.forEach((r, idx) => {
-      const dist = Math.abs(r.center - capsuleCenter);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestIndex = idx;
+        rects.forEach((r, idx) => {
+          const dist = Math.abs(r.center - tempCenter);
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestIndex = idx;
+          }
+        });
+
+        switchTab(tabIds[closestIndex], closestIndex, true);
       }
-    });
-
-    const targetRect = rects[closestIndex];
-    if (targetRect && lightCapsule) {
-      lightCapsule.classList.remove("jelly-anim");
-      void lightCapsule.offsetWidth;
-      setCapsuleTransform(targetRect.left, targetRect.width, 1, 1, true);
-      lightCapsule.classList.add("jelly-anim");
-      setTimeout(() => lightCapsule.classList.remove("jelly-anim"), 450);
-
-      switchTab(tabIds[closestIndex], closestIndex, false);
+      setTimeout(() => { isDraggingDock = false; }, 50);
     }
   }
 
@@ -951,13 +964,10 @@
   }
 
   if (dockWrapper) {
-    dockWrapper.addEventListener("mousedown", onPointerDown);
-    window.addEventListener("mousemove", onPointerMove);
-    window.addEventListener("mouseup", onPointerUp);
-
-    dockWrapper.addEventListener("touchstart", onPointerDown, { passive: true });
-    window.addEventListener("touchmove", onPointerMove, { passive: true });
-    window.addEventListener("touchend", onPointerUp);
+    dockWrapper.addEventListener("pointerdown", onPointerDown);
+    dockWrapper.addEventListener("pointermove", onPointerMove);
+    dockWrapper.addEventListener("pointerup", onPointerUp);
+    dockWrapper.addEventListener("pointercancel", onPointerUp);
   }
 
   // --- Admin Core Logic & Endpoints ---
