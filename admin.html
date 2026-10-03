@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YangEnx 授權管理後台 Pro</title>
+<title>YangEnx 授權管理後台</title>
 <style>
   :root {
     --bg: #0a0a0f;
@@ -28,6 +28,7 @@
     color: var(--text);
     font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
     min-height: 100vh;
+    overflow-x: hidden;
   }
   a { color: inherit; }
 
@@ -61,7 +62,7 @@
     outline: none;
     color-scheme: dark;
   }
-  input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
+  input:focus, select:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 10px rgba(34, 211, 238, 0.3); }
   input::placeholder, textarea::placeholder { color: #4d4d5e; }
   label {
     display: block;
@@ -79,9 +80,10 @@
     font-weight: 600;
     cursor: pointer;
     color: #fff;
+    transition: all 0.2s;
   }
   .btn-gradient { background: linear-gradient(90deg, var(--purple), var(--cyan)); }
-  .btn-gradient:hover { opacity: 0.9; }
+  .btn-gradient:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 0 15px rgba(34, 211, 238, 0.4); }
   .btn-ghost { background: #1a1a24; color: var(--text-dim); }
   .btn-ghost:hover { color: var(--text); }
   .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 5px; }
@@ -90,18 +92,21 @@
   .btn-gray { background: #33333f; color: #c0c0d0; border: 1px solid #44445a; }
   .btn-red { background: #f1466833; color: var(--red); border: 1px solid #f1466855; }
 
-  /* ---------------- App shell ---------------- */
+  /* ---------------- App shell & Header ---------------- */
   #app { display: none; }
   header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 32px;
+    padding: 16px 32px;
+    background: rgba(17, 17, 24, 0.85);
+    backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--panel-border);
-    margin-bottom: 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
-  .logo { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
-  .logo span { color: var(--cyan); }
+  .logo { font-size: 20px; font-weight: 700; letter-spacing: 1px; color: var(--text); }
   #logout-btn {
     border: 1px solid var(--red);
     background: transparent;
@@ -111,20 +116,144 @@
     font-size: 13px;
     cursor: pointer;
   }
-  main { max-width: 1200px; margin: 0 auto; padding: 0 32px 48px; }
+
+  /* ---------------- Navigation Tabs Bar with Light Beam ---------------- */
+  .nav-tabs-container {
+    background: var(--panel);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0 32px;
+    margin-bottom: 28px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  .nav-tabs-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    position: relative;
+    z-index: 2;
+  }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 24px;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.3s ease, text-shadow 0.3s ease;
+    white-space: nowrap;
+    position: relative;
+    z-index: 3;
+  }
+  .tab-btn:hover {
+    color: var(--text);
+  }
+  .tab-btn.active {
+    color: #ffffff;
+    text-shadow: 0 0 10px #22d3ee, 0 0 20px #a855f7;
+  }
+
+  /* Dynamic Sliding Light Beam Line */
+  .light-beam {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 130px;
+    height: 4px;
+    background: linear-gradient(90deg, #a855f7, #22d3ee, #a855f7);
+    border-radius: 4px 4px 0 0;
+    box-shadow:
+      0 0 10px #22d3ee,
+      0 0 20px #22d3ee,
+      0 0 35px #a855f7,
+      0 -6px 20px rgba(34, 211, 238, 0.8);
+    z-index: 4;
+    transition: left 0.35s cubic-bezier(0.25, 1, 0.5, 1), width 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    pointer-events: none;
+  }
+
+  /* Dynamic Glowing Pill Background under active tab */
+  .light-beam-glow {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 0;
+    width: 130px;
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.2), rgba(34, 211, 238, 0.25));
+    border: 1px solid rgba(34, 211, 238, 0.5);
+    border-radius: 8px;
+    z-index: 1;
+    transition: left 0.35s cubic-bezier(0.25, 1, 0.5, 1), width 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    pointer-events: none;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.3), inset 0 0 10px rgba(34, 211, 238, 0.2);
+  }
+
+  /* ---------------- Main Content & Directional Transitions ---------------- */
+  main { max-width: 1200px; margin: 0 auto; padding: 0 32px 48px; position: relative; }
+
+  .tab-content {
+    display: none;
+    width: 100%;
+  }
+  .tab-content.active {
+    display: block;
+  }
+
+  .slide-from-right {
+    animation: slideRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .slide-from-left {
+    animation: slideLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes slideRight {
+    0% {
+      opacity: 0;
+      transform: translateX(60px);
+      filter: blur(4px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes slideLeft {
+    0% {
+      opacity: 0;
+      transform: translateX(-60px);
+      filter: blur(4px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+      filter: blur(0);
+    }
+  }
 
   /* ---------------- Stat cards ---------------- */
   .stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 16px;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
   }
   .stat-card {
     background: var(--panel);
     border: 1px solid var(--panel-border);
-    border-left: 3px solid var(--cyan);
-    border-radius: 8px;
+    border-left: 4px solid var(--cyan);
+    border-radius: 10px;
     padding: 18px 20px;
   }
   .stat-card.total { border-left-color: var(--purple); }
@@ -159,9 +288,10 @@
   .panel {
     background: var(--panel);
     border: 1px solid var(--panel-border);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 24px;
     margin-bottom: 24px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
   }
   .panel h2 {
     font-size: 16px;
@@ -257,6 +387,7 @@
 
   @media (max-width: 768px) {
     header { padding: 16px 20px; }
+    .nav-tabs-container { padding: 0 16px; }
     main { padding: 0 16px 32px; }
     .form-grid { grid-template-columns: 1fr; }
     .table-toolbar input, .table-toolbar select { width: 100%; }
@@ -279,287 +410,321 @@
 <!-- App Main Screen -->
 <div id="app">
   <header>
-    <div class="logo">YANGENX <span>PRO</span></div>
+    <div class="logo">YANGENX</div>
     <button id="logout-btn" onclick="logout()">登出管理員</button>
   </header>
 
+  <!-- Dynamic Navigation Bar -->
+  <div class="nav-tabs-container">
+    <div class="nav-tabs-wrapper">
+      <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('dashboard', 0)">📊 總覽儀表板</button>
+        <button class="tab-btn" onclick="switchTab('keys', 1)">🔑 卡密管理</button>
+        <button class="tab-btn" onclick="switchTab('apps', 2)">📱 應用程式</button>
+        <button class="tab-btn" onclick="switchTab('blacklist', 3)">🛡️ 黑名單系統</button>
+        <button class="tab-btn" onclick="switchTab('broadcast', 4)">📢 即時廣播</button>
+        <button class="tab-btn" onclick="switchTab('dynamic', 5)">⚡ 動態注入</button>
+        <button class="tab-btn" onclick="switchTab('maintenance', 6)">⚙️ 維護與熱更新</button>
+      </div>
+      <div class="light-beam" id="light-beam"></div>
+      <div class="light-beam-glow" id="light-beam-glow"></div>
+    </div>
+  </div>
+
   <main>
-    <!-- Stats Cards -->
-    <div class="stats">
-      <div class="stat-card total">
-        <div class="stat-label">卡密總數</div>
-        <div class="stat-value" id="stat-total">0</div>
+    <!-- TAB 0: Dashboard (Overview & Online Users Monitor) -->
+    <div id="tab-dashboard" class="tab-content active">
+      <!-- Stats Cards -->
+      <div class="stats">
+        <div class="stat-card total">
+          <div class="stat-label">卡密總數</div>
+          <div class="stat-value" id="stat-total">0</div>
+        </div>
+        <div class="stat-card active">
+          <div class="stat-label">生效中卡密</div>
+          <div class="stat-value" id="stat-active" style="color:var(--green)">0</div>
+        </div>
+        <div class="stat-card expired">
+          <div class="stat-label">已過期 / 停用</div>
+          <div class="stat-value" id="stat-expired" style="color:var(--red)">0</div>
+        </div>
+        <div class="stat-card online">
+          <div class="stat-label">即時在線連線 (WS)</div>
+          <div class="stat-value" id="stat-online" style="color:var(--amber)">0</div>
+        </div>
       </div>
-      <div class="stat-card active">
-        <div class="stat-label">生效中卡密</div>
-        <div class="stat-value" id="stat-active" style="color:var(--green)">0</div>
-      </div>
-      <div class="stat-card expired">
-        <div class="stat-label">已過期 / 停用</div>
-        <div class="stat-value" id="stat-expired" style="color:var(--red)">0</div>
-      </div>
-      <div class="stat-card online">
-        <div class="stat-label">即時在線連線 (WS)</div>
-        <div class="stat-value" id="stat-online" style="color:var(--amber)">0</div>
+
+      <!-- Online Users Monitor -->
+      <div class="panel">
+        <h2>即時在線使用者監控 (WebSocket Active Connections)</h2>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>卡密 (License Key)</th>
+                <th>應用程式</th>
+                <th>用戶名</th>
+                <th>硬體 ID (HWID)</th>
+                <th>Client IP</th>
+                <th>連線建立時間</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="online-table-body">
+              <tr class="empty-row"><td colspan="7">無在線連線</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <!-- 1. Applications Panel -->
-    <div class="panel">
-      <h2>應用程式管理 (Multi-App KeyAuth 架構)</h2>
-      <div class="app-toolbar">
-        <div class="app-create-row">
-          <input type="text" id="new-app-name" placeholder="應用程式名稱 (例如: GameHack)" />
-          <button class="btn btn-gradient" onclick="createApplication()">新增應用程式</button>
-        </div>
-        <div id="app-create-error" style="color:var(--red); font-size:12px;"></div>
-      </div>
-      <div id="app-list" class="app-grid">
-        <div class="app-empty">正在載入應用程式列表...</div>
-      </div>
-    </div>
-
-    <!-- 2. License Key Management -->
-    <div class="panel">
-      <h2>新增卡密</h2>
-      <div id="create-error" style="color:var(--red); font-size:13px; margin-bottom:10px;"></div>
-      <div class="form-grid">
-        <div>
-          <label>所屬應用程式</label>
-          <select id="new-key-app"></select>
-        </div>
-        <div>
-          <label>卡密 (留空自動隨機產生)</label>
-          <div class="key-input-row">
-            <input type="text" id="new-key" placeholder="XXXX-YYYY-ZZZZ" />
-            <button class="btn btn-ghost" onclick="randomizeKey()">隨機生成</button>
+    <!-- TAB 1: Key Management (Add Key & Key List) -->
+    <div id="tab-keys" class="tab-content">
+      <!-- Create Key Form -->
+      <div class="panel">
+        <h2>新增卡密</h2>
+        <div id="create-error" style="color:var(--red); font-size:13px; margin-bottom:10px;"></div>
+        <div class="form-grid">
+          <div>
+            <label>所屬應用程式</label>
+            <select id="new-key-app"></select>
+          </div>
+          <div>
+            <label>卡密 (留空自動隨機產生)</label>
+            <div class="key-input-row">
+              <input type="text" id="new-key" placeholder="XXXX-YYYY-ZZZZ" />
+              <button class="btn btn-ghost" onclick="randomizeKey()">隨機生成</button>
+            </div>
+          </div>
+          <div>
+            <label>預設用戶名</label>
+            <input type="text" id="new-username" placeholder="User001" />
+          </div>
+          <div>
+            <label>綁定限制 (裝置數)</label>
+            <input type="number" id="new-max-devices" value="1" min="1" max="100" />
+          </div>
+          <div>
+            <label>到期日 (本地時間)</label>
+            <input type="datetime-local" id="new-expiry" />
+            <div class="expiry-quick">
+              <button class="btn btn-ghost" onclick="setExpiry(1)">1天</button>
+              <button class="btn btn-ghost" onclick="setExpiry(7)">7天</button>
+              <button class="btn btn-ghost" onclick="setExpiry(30)">30天</button>
+              <button class="btn btn-ghost" onclick="setExpiry(365)">1年</button>
+              <button class="btn btn-ghost" onclick="setExpiry(3650)">永久</button>
+            </div>
           </div>
         </div>
-        <div>
-          <label>預設用戶名</label>
-          <input type="text" id="new-username" placeholder="User001" />
+        <button class="btn btn-gradient" onclick="createKey()">建立授權卡密</button>
+      </div>
+
+      <!-- Key List Table -->
+      <div class="panel">
+        <h2>卡密清單</h2>
+        <div class="table-toolbar split">
+          <div>
+            <select id="filter-app-id" onchange="fetchKeys()">
+              <option value="">-- 所有應用程式 --</option>
+            </select>
+          </div>
+          <input type="text" id="search-input" placeholder="搜尋卡密或用戶名..." oninput="renderTable()" />
         </div>
-        <div>
-          <label>綁定限制 (裝置數)</label>
-          <input type="number" id="new-max-devices" value="1" min="1" max="100" />
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>卡密 (License Key)</th>
+                <th>應用程式</th>
+                <th>用戶名</th>
+                <th>裝置綁定</th>
+                <th>即時狀態</th>
+                <th>到期日</th>
+                <th>狀態</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="key-table-body">
+              <tr class="empty-row"><td colspan="9">正在載入資料...</td></tr>
+            </tbody>
+          </table>
         </div>
-        <div>
-          <label>到期日 (本地時間)</label>
-          <input type="datetime-local" id="new-expiry" />
-          <div class="expiry-quick">
-            <button class="btn btn-ghost" onclick="setExpiry(1)">1天</button>
-            <button class="btn btn-ghost" onclick="setExpiry(7)">7天</button>
-            <button class="btn btn-ghost" onclick="setExpiry(30)">30天</button>
-            <button class="btn btn-ghost" onclick="setExpiry(365)">1年</button>
-            <button class="btn btn-ghost" onclick="setExpiry(3650)">永久</button>
+      </div>
+    </div>
+
+    <!-- TAB 2: Application Management -->
+    <div id="tab-apps" class="tab-content">
+      <div class="panel">
+        <h2>應用程式管理 (Multi-App KeyAuth 架構)</h2>
+        <div class="app-toolbar">
+          <div class="app-create-row">
+            <input type="text" id="new-app-name" placeholder="應用程式名稱 (例如: GameHack)" />
+            <button class="btn btn-gradient" onclick="createApplication()">新增應用程式</button>
+          </div>
+          <div id="app-create-error" style="color:var(--red); font-size:12px;"></div>
+        </div>
+        <div id="app-list" class="app-grid">
+          <div class="app-empty">正在載入應用程式列表...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: Blacklist Management -->
+    <div id="tab-blacklist" class="tab-content">
+      <div class="panel">
+        <h2>HWID / IP 黑名單管理系統 (Blacklist System)</h2>
+        <div id="blacklist-error" style="color:var(--red); font-size:13px; margin-bottom:10px;"></div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 2fr 2fr auto; gap:12px; margin-bottom:16px;">
+          <div>
+            <label>適用應用程式</label>
+            <select id="blacklist-app-id">
+              <option value="">-- 全域黑名單 (跨所有App) --</option>
+            </select>
+          </div>
+          <div>
+            <label>封禁類型</label>
+            <select id="blacklist-type">
+              <option value="hwid">HWID (硬體鎖)</option>
+              <option value="ip">IP 位址</option>
+            </select>
+          </div>
+          <div>
+            <label>封禁目標數值 (HWID / IP)</label>
+            <input type="text" id="blacklist-value" placeholder="輸入 HWID 字串或 IP 位址..." />
+          </div>
+          <div>
+            <label>封禁原因 / 備註</label>
+            <input type="text" id="blacklist-reason" placeholder="例如：惡意逆向分析 / 重複作弊" />
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button class="btn btn-red" style="width:100%; white-space:nowrap;" onclick="addBlacklist()">加入黑名單並踢下線</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>適用範圍</th>
+                <th>類型</th>
+                <th>封禁數值 (HWID / IP)</th>
+                <th>原因</th>
+                <th>建立時間</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="blacklist-table-body">
+              <tr class="empty-row"><td colspan="7">載入中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: Real-time Broadcast -->
+    <div id="tab-broadcast" class="tab-content">
+      <div class="panel">
+        <h2>即時廣播公告彈窗推播 (Real-time Broadcast Push)</h2>
+        <div style="display:grid; grid-template-columns: 1.5fr 1fr 2fr auto; gap:12px; margin-bottom:16px;">
+          <div>
+            <label>目標應用程式</label>
+            <select id="broadcast-app-id">
+              <option value="">-- 全域廣播 (推送給所有線上使用者) --</option>
+            </select>
+          </div>
+          <div>
+            <label>廣播層級</label>
+            <select id="broadcast-level">
+              <option value="info">一般資訊 (Info)</option>
+              <option value="warning">維護警告 (Warning)</option>
+              <option value="important">重要緊急公告 (Important)</option>
+            </select>
+          </div>
+          <div>
+            <label>廣播標題</label>
+            <input type="text" id="broadcast-title" placeholder="例如: 伺服器即將維護通知" />
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button class="btn btn-gradient" style="white-space:nowrap;" onclick="sendBroadcast()">即時推播給線上用戶</button>
+          </div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label>廣播詳細內容</label>
+          <textarea id="broadcast-message" rows="3" style="width:100%;" placeholder="請輸入欲推播給所有 C# 客戶端彈窗顯示的公告訊息..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: Dynamic Memory Injection -->
+    <div id="tab-dynamic" class="tab-content">
+      <div class="panel">
+        <h2>動態記憶體 Key / 參數注入 (Dynamic Memory Injection)</h2>
+        <div style="margin-bottom:14px;">
+          <label>選擇目標應用程式</label>
+          <select id="dynamic-app-select" onchange="fetchDynamicPayload()"></select>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label>動態注入內容 (JSON 或加密 Key 參數，連線驗證成功後直接回傳至記憶體)</label>
+          <textarea id="dynamic-payload-input" rows="4" style="width:100%; font-family:monospace;" placeholder='{"secret_key": "ABC123XYZ", "memory_offset": "0x7FFF00", "enable_feature_x": true}'></textarea>
+        </div>
+        <button class="btn btn-gradient" onclick="saveDynamicPayload()">儲存動態 Payload 內容</button>
+      </div>
+    </div>
+
+    <!-- TAB 6: App Maintenance & DLL Updates -->
+    <div id="tab-maintenance" class="tab-content">
+      <div class="panel">
+        <h2>應用程式維護模式與檔案熱更新</h2>
+        <div style="margin-bottom:20px;">
+          <label>選擇應用程式</label>
+          <select id="maintenance-app-select" onchange="fetchMaintenanceSettings(); fetchClientFileInfo();"></select>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+          <!-- Client.dll Upload -->
+          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
+            <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">Client.dll 上傳更新</h3>
+            <div id="current-client-file-info" style="font-size:12px; margin-bottom:12px; color:var(--text-dim);">載入中...</div>
+            <div style="margin-bottom:10px;">
+              <label>最新版本號</label>
+              <input type="text" id="client-version-input" placeholder="v1.0.0" style="width:100%;" />
+            </div>
+            <div style="margin-bottom:10px;">
+              <label>更新說明 (Changelog)</label>
+              <textarea id="client-changelog-input" rows="2" style="width:100%;"></textarea>
+            </div>
+            <div style="margin-bottom:12px;">
+              <label>選擇 Client.dll 檔案</label>
+              <input type="file" id="client-file-input" accept=".dll" style="width:100%;" />
+            </div>
+            <button class="btn btn-gradient" style="width:100%;" onclick="uploadClientFile()">上傳 Client.dll 並更新</button>
+            <div id="upload-client-success" style="font-size:12px; margin-top:8px;"></div>
+            <div id="upload-client-error" style="font-size:12px; color:var(--red); margin-top:4px;"></div>
+          </div>
+
+          <!-- Maintenance Settings -->
+          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
+            <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">維護模式與停服設定</h3>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+              <span style="font-size:13px;">維護模式狀態</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="maintenance-toggle" onchange="onMaintenanceToggle()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div id="maintenance-status-tag" class="badge badge-active" style="margin-bottom:14px;">維護模式：關閉</div>
+            <div style="margin-bottom:14px;">
+              <label>維護提示訊息</label>
+              <input type="text" id="maintenance-message" style="width:100%;" placeholder="系統維護中..." />
+            </div>
+            <button class="btn btn-gradient" style="width:100%;" onclick="saveMaintenanceSettings()">儲存維護設定</button>
+            <div id="maintenance-error" style="font-size:12px; color:var(--red); margin-top:8px;"></div>
           </div>
         </div>
       </div>
-      <button class="btn btn-gradient" onclick="createKey()">建立授權卡密</button>
     </div>
 
-    <!-- 3. Key List Table -->
-    <div class="panel">
-      <h2>卡密清單</h2>
-      <div class="table-toolbar split">
-        <div>
-          <select id="filter-app-id" onchange="fetchKeys()">
-            <option value="">-- 所有應用程式 --</option>
-          </select>
-        </div>
-        <input type="text" id="search-input" placeholder="搜尋卡密或用戶名..." oninput="renderTable()" />
-      </div>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>卡密 (License Key)</th>
-              <th>應用程式</th>
-              <th>用戶名</th>
-              <th>裝置綁定</th>
-              <th>即時狀態</th>
-              <th>到期日</th>
-              <th>狀態</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="key-table-body">
-            <tr class="empty-row"><td colspan="9">正在載入資料...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- 4. HWID / IP Blacklist Management System -->
-    <div class="panel">
-      <h2>HWID / IP 黑名單管理系統 (Blacklist System)</h2>
-      <div id="blacklist-error" style="color:var(--red); font-size:13px; margin-bottom:10px;"></div>
-      <div style="display:grid; grid-template-columns: 1fr 1fr 2fr 2fr auto; gap:12px; margin-bottom:16px;">
-        <div>
-          <label>適用應用程式</label>
-          <select id="blacklist-app-id">
-            <option value="">-- 全域黑名單 (跨所有App) --</option>
-          </select>
-        </div>
-        <div>
-          <label>封禁類型</label>
-          <select id="blacklist-type">
-            <option value="hwid">HWID (硬體鎖)</option>
-            <option value="ip">IP 位址</option>
-          </select>
-        </div>
-        <div>
-          <label>封禁目標數值 (HWID / IP)</label>
-          <input type="text" id="blacklist-value" placeholder="輸入 HWID 字串或 IP 位址..." />
-        </div>
-        <div>
-          <label>封禁原因 / 備註</label>
-          <input type="text" id="blacklist-reason" placeholder="例如：惡意逆向分析 / 重複作弊" />
-        </div>
-        <div style="display:flex; align-items:flex-end;">
-          <button class="btn btn-red" style="width:100%; white-space:nowrap;" onclick="addBlacklist()">加入黑名單並踢下線</button>
-        </div>
-      </div>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>適用範圍</th>
-              <th>類型</th>
-              <th>封禁數值 (HWID / IP)</th>
-              <th>原因</th>
-              <th>建立時間</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="blacklist-table-body">
-            <tr class="empty-row"><td colspan="7">載入中...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- 5. Real-time Broadcast Announcement Modal / Panel -->
-    <div class="panel">
-      <h2>即時廣播公告彈窗推播 (Real-time Broadcast Push)</h2>
-      <div style="display:grid; grid-template-columns: 1.5fr 1fr 2fr auto; gap:12px; margin-bottom:16px;">
-        <div>
-          <label>目標應用程式</label>
-          <select id="broadcast-app-id">
-            <option value="">-- 全域廣播 (推送給所有線上使用者) --</option>
-          </select>
-        </div>
-        <div>
-          <label>廣播層級</label>
-          <select id="broadcast-level">
-            <option value="info">一般資訊 (Info)</option>
-            <option value="warning">維護警告 (Warning)</option>
-            <option value="important">重要緊急公告 (Important)</option>
-          </select>
-        </div>
-        <div>
-          <label>廣播標題</label>
-          <input type="text" id="broadcast-title" placeholder="例如: 伺服器即將維護通知" />
-        </div>
-        <div style="display:flex; align-items:flex-end;">
-          <button class="btn btn-gradient" style="white-space:nowrap;" onclick="sendBroadcast()">即時推播給線上用戶</button>
-        </div>
-      </div>
-      <div style="margin-bottom:16px;">
-        <label>廣播詳細內容</label>
-        <textarea id="broadcast-message" rows="3" style="width:100%;" placeholder="請輸入欲推播給所有 C# 客戶端彈窗顯示的公告訊息..."></textarea>
-      </div>
-    </div>
-
-    <!-- 6. Dynamic Memory Key / Parameter Injection -->
-    <div class="panel">
-      <h2>動態記憶體 Key / 參數注入 (Dynamic Memory Injection)</h2>
-      <div style="margin-bottom:14px;">
-        <label>選擇目標應用程式</label>
-        <select id="dynamic-app-select" onchange="fetchDynamicPayload()"></select>
-      </div>
-      <div style="margin-bottom:14px;">
-        <label>動態注入內容 (JSON 或加密 Key 參數，連線驗證成功後直接回傳至記憶體)</label>
-        <textarea id="dynamic-payload-input" rows="4" style="width:100%; font-family:monospace;" placeholder='{"secret_key": "ABC123XYZ", "memory_offset": "0x7FFF00", "enable_feature_x": true}'></textarea>
-      </div>
-      <button class="btn btn-gradient" onclick="saveDynamicPayload()">儲存動態 Payload 內容</button>
-    </div>
-
-    <!-- 7. App Settings & DLL Hot Updates -->
-    <div class="panel">
-      <h2>應用程式維護模式與檔案熱更新</h2>
-      <div style="margin-bottom:20px;">
-        <label>選擇應用程式</label>
-        <select id="maintenance-app-select" onchange="fetchMaintenanceSettings(); fetchClientFileInfo(); fetchInternalFileInfo();"></select>
-      </div>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-        <!-- Client.dll Upload -->
-        <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
-          <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">Client.dll 上傳更新</h3>
-          <div id="current-client-file-info" style="font-size:12px; margin-bottom:12px; color:var(--text-dim);">載入中...</div>
-          <div style="margin-bottom:10px;">
-            <label>最新版本號</label>
-            <input type="text" id="client-version-input" placeholder="v1.0.0" style="width:100%;" />
-          </div>
-          <div style="margin-bottom:10px;">
-            <label>更新說明 (Changelog)</label>
-            <textarea id="client-changelog-input" rows="2" style="width:100%;"></textarea>
-          </div>
-          <div style="margin-bottom:12px;">
-            <label>選擇 Client.dll 檔案</label>
-            <input type="file" id="client-file-input" accept=".dll" style="width:100%;" />
-          </div>
-          <button class="btn btn-gradient" style="width:100%;" onclick="uploadClientFile()">上傳 Client.dll 並更新</button>
-          <div id="upload-client-success" style="font-size:12px; margin-top:8px;"></div>
-          <div id="upload-client-error" style="font-size:12px; color:var(--red); margin-top:4px;"></div>
-        </div>
-
-        <!-- Maintenance Settings -->
-        <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
-          <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">維護模式與停服設定</h3>
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-            <span style="font-size:13px;">維護模式狀態</span>
-            <label class="toggle-switch">
-              <input type="checkbox" id="maintenance-toggle" onchange="onMaintenanceToggle()">
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div id="maintenance-status-tag" class="badge badge-active" style="margin-bottom:14px;">維護模式：關閉</div>
-          <div style="margin-bottom:14px;">
-            <label>維護提示訊息</label>
-            <input type="text" id="maintenance-message" style="width:100%;" placeholder="系統維護中..." />
-          </div>
-          <button class="btn btn-gradient" style="width:100%;" onclick="saveMaintenanceSettings()">儲存維護設定</button>
-          <div id="maintenance-error" style="font-size:12px; color:var(--red); margin-top:8px;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 8. Online Users Monitor -->
-    <div class="panel">
-      <h2>即時在線使用者監控 (WebSocket Active Connections)</h2>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>卡密 (License Key)</th>
-              <th>應用程式</th>
-              <th>用戶名</th>
-              <th>硬體 ID (HWID)</th>
-              <th>Client IP</th>
-              <th>連線建立時間</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="online-table-body">
-            <tr class="empty-row"><td colspan="7">無在線連線</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
   </main>
 </div>
 
@@ -573,7 +738,58 @@
   let allKeys = [];
   let onlineUsersList = [];
   let visibleSecrets = new Set();
+  let currentTabIndex = 0;
 
+  // --- Tab Switching & Light Beam Slider Logic ---
+  function updateLightBeamPosition(btn) {
+    const lightBeam = document.getElementById("light-beam");
+    const lightGlow = document.getElementById("light-beam-glow");
+    if (!btn || !lightBeam || !lightGlow) return;
+
+    const left = btn.offsetLeft;
+    const width = btn.offsetWidth;
+
+    lightBeam.style.left = left + "px";
+    lightBeam.style.width = width + "px";
+
+    lightGlow.style.left = left + "px";
+    lightGlow.style.width = width + "px";
+  }
+
+  function switchTab(tabId, newIndex) {
+    if (newIndex === currentTabIndex) return;
+
+    const buttons = document.querySelectorAll(".tab-btn");
+    const contents = document.querySelectorAll(".tab-content");
+    const targetBtn = buttons[newIndex];
+    const targetContent = document.getElementById("tab-" + tabId);
+
+    if (!targetBtn || !targetContent) return;
+
+    const isGoingRight = newIndex > currentTabIndex;
+    const animClass = isGoingRight ? "slide-from-right" : "slide-from-left";
+
+    buttons.forEach(b => b.classList.remove("active"));
+    targetBtn.classList.add("active");
+
+    updateLightBeamPosition(targetBtn);
+
+    contents.forEach(c => {
+      c.classList.remove("active", "slide-from-right", "slide-from-left");
+    });
+
+    targetContent.classList.add("active", animClass);
+    currentTabIndex = newIndex;
+  }
+
+  function initLightBeam() {
+    const activeBtn = document.querySelector(".tab-btn.active");
+    if (activeBtn) {
+      updateLightBeamPosition(activeBtn);
+    }
+  }
+
+  // --- Admin Core Logic & Endpoints ---
   function login() {
     const token = document.getElementById("admin-token-input").value.trim();
     if (!token) return;
@@ -614,6 +830,7 @@
       updateAppSelects();
       fetchKeys();
       fetchBlacklists();
+      setTimeout(initLightBeam, 50);
     } catch (err) {
       if (err.message !== "UNAUTHORIZED") {
         document.getElementById("login-error").textContent = "無法連接伺服器：" + err.message;
@@ -1088,6 +1305,7 @@
   }
 
   document.getElementById("admin-token-input").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+  window.addEventListener("resize", initLightBeam);
   setInterval(() => { if (adminToken) fetchKeys(); }, 8000);
 </script>
 </body>
