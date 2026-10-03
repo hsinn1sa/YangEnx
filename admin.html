@@ -193,6 +193,57 @@
       inset 0 0 10px rgba(255, 255, 255, 0.25);
     transform-origin: center center;
     will-change: transform, width;
+    transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), width 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .light-beam-glow.dragging {
+    transition: none !important;
+  }
+
+  /* Instagram Style Floating Bottom Dock on Mobile Devices */
+  @media (max-width: 768px) {
+    .nav-tabs-container {
+      position: fixed;
+      bottom: 14px;
+      left: 0;
+      right: 0;
+      padding: 0 12px;
+      z-index: 10000;
+      pointer-events: none;
+    }
+    .nav-tabs-wrapper {
+      max-width: 100%;
+      margin: 0 auto;
+      pointer-events: auto;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+      background: rgba(18, 20, 28, 0.88);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .nav-tabs-wrapper::-webkit-scrollbar {
+      display: none;
+    }
+    .tab-btn {
+      padding: 10px 12px;
+      font-size: 12.5px;
+      gap: 4px;
+    }
+    #main-content {
+      padding-bottom: 100px !important;
+    }
+    header {
+      padding: 12px 16px;
+    }
+    .panel {
+      padding: 16px 14px;
+      margin-bottom: 16px;
+    }
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   .light-beam-glow::before {
@@ -418,16 +469,15 @@
   <div class="nav-tabs-container">
     <div class="nav-tabs-wrapper" id="dock-wrapper">
       <div class="nav-tabs" id="tab-bar">
-        <button class="tab-btn active" data-id="dashboard" data-index="0">📊 儀表板</button>
-        <button class="tab-btn" data-id="keys" data-index="1">🔑 卡密</button>
-        <button class="tab-btn" data-id="apps" data-index="2">📱 應用</button>
-        <button class="tab-btn" data-id="blacklist" data-index="3">🛡️ 黑名單</button>
-        <button class="tab-btn" data-id="broadcast" data-index="4">📢 廣播</button>
-        <button class="tab-btn" data-id="dynamic" data-index="5">⚡ 注入</button>
-        <button class="tab-btn" data-id="maintenance" data-index="6">⚙️ 維護與熱更新</button>
+        <div class="light-beam-glow" id="light-beam-glow"></div>
+        <button class="tab-btn active" data-id="dashboard" data-index="0" onclick="switchTab(0)">📊 儀表板</button>
+        <button class="tab-btn" data-id="keys" data-index="1" onclick="switchTab(1)">🔑 卡密</button>
+        <button class="tab-btn" data-id="apps" data-index="2" onclick="switchTab(2)">📱 應用</button>
+        <button class="tab-btn" data-id="blacklist" data-index="3" onclick="switchTab(3)">🛡️ 黑名單</button>
+        <button class="tab-btn" data-id="broadcast" data-index="4" onclick="switchTab(4)">📢 廣播</button>
+        <button class="tab-btn" data-id="dynamic" data-index="5" onclick="switchTab(5)">⚡ 注入</button>
+        <button class="tab-btn" data-id="maintenance" data-index="6" onclick="switchTab(6)">⚙️ 維護與熱更新</button>
       </div>
-      <!-- Q彈果凍伸縮膠囊 Pill -->
-      <div class="light-beam-glow" id="light-beam-glow"></div>
     </div>
   </div>
 
@@ -774,191 +824,217 @@
   let onlineUsersList = [];
   let visibleSecrets = new Set();
   let currentTabIndex = 0;
+  let touchStartTabIndex = 0;
+  let currentCapsuleX = 0;
   const totalTabs = 7;
   const tabIds = ['dashboard', 'keys', 'apps', 'blacklist', 'broadcast', 'dynamic', 'maintenance'];
-
   const dockWrapper = document.getElementById("dock-wrapper");
   const lightCapsule = document.getElementById("light-beam-glow");
-  let buttons = [];
 
-  function getButtonRects() {
-    if (!dockWrapper) return [];
-    buttons = Array.from(document.querySelectorAll(".tab-btn"));
-    const wrapperRect = dockWrapper.getBoundingClientRect();
-    return buttons.map(btn => {
-      const r = btn.getBoundingClientRect();
+  function getButtonData() {
+    const btns = Array.from(document.querySelectorAll(".tab-btn"));
+    return btns.map((btn, index) => {
       return {
-        left: r.left - wrapperRect.left,
-        width: r.width,
-        center: (r.left - wrapperRect.left) + r.width / 2,
+        index: index,
+        id: tabIds[index],
+        left: btn.offsetLeft,
+        width: btn.offsetWidth,
+        center: btn.offsetLeft + btn.offsetWidth / 2,
         btn: btn
       };
     });
   }
 
-  function getCurrentCapsuleLeft() {
-    const rects = getButtonRects();
-    if (rects && rects[currentTabIndex]) {
-      return rects[currentTabIndex].left;
-    }
-    return currentCapsuleX || 0;
+  function scrollToActiveTab(index) {
+    if (!dockWrapper) return;
+    const btns = getButtonData();
+    const target = btns[index];
+    if (!target) return;
+
+    const wrapperWidth = dockWrapper.clientWidth;
+    const targetCenter = target.left + target.width / 2;
+    const scrollTarget = targetCenter - wrapperWidth / 2;
+
+    dockWrapper.scrollTo({
+      left: Math.max(0, scrollTarget),
+      behavior: 'smooth'
+    });
   }
 
-  function setCapsuleTransform(x, width, scaleX = 1, scaleY = 1, animate = true) {
+  function updateCapsulePosition(index, animate = true) {
     if (!lightCapsule) return;
-    if (animate) {
-      lightCapsule.style.transition = "transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.25), width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.25)";
-    } else {
-      lightCapsule.style.transition = "none";
+    const btns = getButtonData();
+    const target = btns[index];
+    if (!target) return;
+
+    if (!animate) {
+      lightCapsule.classList.add("dragging");
+      lightCapsule.style.transform = `translateX(${target.left}px) scale(1, 1)`;
+      lightCapsule.style.width = target.width + "px";
+      void lightCapsule.offsetWidth;
+      lightCapsule.classList.remove("dragging");
+      currentCapsuleX = target.left;
+      return;
     }
-    lightCapsule.style.transform = `translateX(${x}px) scale(${scaleX}, ${scaleY})`;
-    lightCapsule.style.width = width + "px";
-    currentCapsuleX = x;
+
+    lightCapsule.classList.remove("dragging");
+    lightCapsule.style.transform = `translateX(${target.left}px) scale(1, 1)`;
+    lightCapsule.style.width = target.width + "px";
+    currentCapsuleX = target.left;
   }
 
-  function switchTab(tabId, newIndex, animateCapsule = true) {
-    buttons = Array.from(document.querySelectorAll(".tab-btn"));
+  function switchTab(newIndex, animateCapsule = true) {
+    if (newIndex < 0 || newIndex >= tabIds.length) return;
+    if (newIndex === currentTabIndex && animateCapsule && !isDraggingDock) return;
+
+    const btns = document.querySelectorAll(".tab-btn");
     const contents = document.querySelectorAll(".tab-content");
-    const targetContent = document.getElementById("tab-" + tabId);
+    const targetTabId = tabIds[newIndex];
+    const targetContent = document.getElementById("tab-" + targetTabId);
 
     if (!targetContent) return;
 
     const isGoingRight = newIndex > currentTabIndex;
     const animClass = isGoingRight ? "slide-from-right" : "slide-from-left";
 
-    buttons.forEach((b, i) => {
+    btns.forEach((b, i) => {
       if (i === newIndex) b.classList.add("active");
       else b.classList.remove("active");
     });
-
-    if (animateCapsule && lightCapsule) {
-      const rects = getButtonRects();
-      const targetRect = rects[newIndex];
-      if (targetRect) {
-        lightCapsule.classList.remove("jelly-anim");
-        void lightCapsule.offsetWidth;
-        setCapsuleTransform(targetRect.left, targetRect.width, 1, 1, true);
-        lightCapsule.classList.add("jelly-anim");
-        setTimeout(() => lightCapsule.classList.remove("jelly-anim"), 450);
-      }
-    }
 
     contents.forEach(c => c.classList.remove("active", "slide-from-right", "slide-from-left"));
     targetContent.classList.add("active", animClass);
 
     currentTabIndex = newIndex;
+
+    if (animateCapsule) {
+      updateCapsulePosition(newIndex, true);
+    }
+    scrollToActiveTab(newIndex);
   }
 
-  // --- Bulletproof Real-Time Jelly Drag & Snap Physics Engine ---
+  function initLightBeam() {
+    updateCapsulePosition(currentTabIndex, false);
+  }
+
+  // --- Real-time Q-Bounce Jelly Drag Physics Engine ---
   let isPointerDown = false;
   let isDraggingDock = false;
-  let pointerDownX = 0;
-  let capsuleStartX = 0;
+  let dragStartX = 0;
+  let capsuleStartLeft = 0;
   let lastPointerX = 0;
-  const DRAG_THRESHOLD = 6;
 
   function onPointerDown(e) {
     if (e.button !== undefined && e.button !== 0) return;
+
+    const touchedBtn = e.target.closest(".tab-btn");
+    const btns = getButtonData();
+
+    if (touchedBtn && touchedBtn.dataset.index !== undefined) {
+      touchStartTabIndex = parseInt(touchedBtn.dataset.index);
+    } else {
+      touchStartTabIndex = currentTabIndex;
+    }
+
+    const startBtnData = btns[touchStartTabIndex] || btns[currentTabIndex];
+    if (!startBtnData) return;
+
     isPointerDown = true;
     isDraggingDock = false;
-    pointerDownX = e.clientX;
+    dragStartX = e.clientX;
     lastPointerX = e.clientX;
-
-    // Lock initial drag start position to current active tab's exact left offset!
-    capsuleStartX = getCurrentCapsuleLeft();
-
-    if (dockWrapper && dockWrapper.setPointerCapture && e.pointerId !== undefined) {
-      try { dockWrapper.setPointerCapture(e.pointerId); } catch (err) {}
-    }
+    capsuleStartLeft = startBtnData.left;
   }
 
   function onPointerMove(e) {
     if (!isPointerDown) return;
-
-    const deltaX = e.clientX - pointerDownX;
+    const deltaX = e.clientX - dragStartX;
     const speed = e.clientX - lastPointerX;
     lastPointerX = e.clientX;
 
-    if (!isDraggingDock && Math.abs(deltaX) > DRAG_THRESHOLD) {
+    if (!isDraggingDock && Math.abs(deltaX) > 8) {
       isDraggingDock = true;
-      if (lightCapsule) {
-        lightCapsule.style.transition = "none";
-        lightCapsule.classList.remove("jelly-anim");
+      if (lightCapsule) lightCapsule.classList.add("dragging");
+      if (dockWrapper && dockWrapper.setPointerCapture && e.pointerId !== undefined) {
+        try { dockWrapper.setPointerCapture(e.pointerId); } catch (err) {}
       }
     }
 
-    if (isDraggingDock && dockWrapper) {
-      const rects = getButtonRects();
-      if (!rects.length) return;
+    if (isDraggingDock) {
+      const btns = getButtonData();
+      if (!btns.length) return;
 
-      const currentTargetX = capsuleStartX + deltaX;
+      const maxLeft = btns[btns.length - 1].left;
+      const rawTargetLeft = capsuleStartLeft + deltaX;
+      const currentTargetLeft = Math.max(-10, Math.min(maxLeft + 10, rawTargetLeft));
 
-      const tempCenter = currentTargetX + (rects[currentTabIndex] ? rects[currentTabIndex].width : 100) / 2;
-      let closestIndex = currentTabIndex;
+      const wrapperRect = dockWrapper.getBoundingClientRect();
+      const pointerX = e.clientX - wrapperRect.left + dockWrapper.scrollLeft;
+
+      let closestIdx = touchStartTabIndex;
       let minDistance = Infinity;
 
-      rects.forEach((r, idx) => {
-        const dist = Math.abs(r.center - tempCenter);
+      btns.forEach((b) => {
+        const dist = Math.abs(b.center - pointerX);
         if (dist < minDistance) {
           minDistance = dist;
-          closestIndex = idx;
+          closestIdx = b.index;
         }
       });
 
-      const currentWidth = rects[closestIndex] ? rects[closestIndex].width : 100;
+      const currentWidth = btns[closestIdx] ? btns[closestIdx].width : btns[0].width;
 
-      // Jelly Stretch & Squish ratios
-      const stretchX = Math.min(1.22, 1 + Math.abs(speed) * 0.008);
-      const squishY = Math.max(0.80, 1 - Math.abs(speed) * 0.006);
+      const stretchX = Math.min(1.25, 1 + Math.abs(speed) * 0.012);
+      const squishY = Math.max(0.78, 1 - Math.abs(speed) * 0.009);
 
-      setCapsuleTransform(currentTargetX, currentWidth, stretchX, squishY, false);
+      lightCapsule.style.transform = `translateX(${currentTargetLeft}px) scale(${stretchX}, ${squishY})`;
+      lightCapsule.style.width = currentWidth + "px";
 
-      buttons.forEach((b, i) => {
-        if (i === closestIndex) b.classList.add("active");
-        else b.classList.remove("active");
+      btns.forEach((b) => {
+        if (b.index === closestIdx) b.btn.classList.add("active");
+        else b.btn.classList.remove("active");
       });
     }
   }
 
   function onPointerUp(e) {
     if (!isPointerDown) return;
+    const wasDragging = isDraggingDock;
     isPointerDown = false;
+    isDraggingDock = false;
 
     if (dockWrapper && dockWrapper.releasePointerCapture && e.pointerId !== undefined) {
       try { dockWrapper.releasePointerCapture(e.pointerId); } catch (err) {}
     }
 
-    if (isDraggingDock && dockWrapper) {
-      const rects = getButtonRects();
-      if (rects.length) {
-        const tempCenter = currentCapsuleX + (rects[currentTabIndex] ? rects[currentTabIndex].width : 100) / 2;
-        let closestIndex = 0;
-        let minDistance = Infinity;
+    const btns = getButtonData();
+    if (!btns.length) return;
 
-        rects.forEach((r, idx) => {
-          const dist = Math.abs(r.center - tempCenter);
-          if (dist < minDistance) {
-            minDistance = dist;
-            closestIndex = idx;
-          }
-        });
+    if (wasDragging) {
+      const wrapperRect = dockWrapper.getBoundingClientRect();
+      const pointerX = e.clientX - wrapperRect.left + dockWrapper.scrollLeft;
 
-        switchTab(tabIds[closestIndex], closestIndex, true);
-      }
-      setTimeout(() => { isDraggingDock = false; }, 50);
+      let closestIdx = touchStartTabIndex;
+      let minDistance = Infinity;
+
+      btns.forEach((b) => {
+        const dist = Math.abs(b.center - pointerX);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestIdx = b.index;
+        }
+      });
+
+      switchTab(closestIdx, true);
     }
   }
 
   function setupButtonListeners() {
-    buttons = Array.from(document.querySelectorAll(".tab-btn"));
-    buttons.forEach((btn, index) => {
+    const btns = document.querySelectorAll(".tab-btn");
+    btns.forEach((btn, index) => {
       btn.onclick = (e) => {
-        if (isDraggingDock) {
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
-        switchTab(tabIds[index], index, true);
+        e.preventDefault();
+        switchTab(index, true);
       };
     });
   }
@@ -969,6 +1045,8 @@
     dockWrapper.addEventListener("pointerup", onPointerUp);
     dockWrapper.addEventListener("pointercancel", onPointerUp);
   }
+
+  setupButtonListeners();
 
   // --- Admin Core Logic & Endpoints ---
   function login() {
