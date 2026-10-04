@@ -1142,6 +1142,48 @@
     dockWrapper.addEventListener("pointermove", onPointerMove);
     dockWrapper.addEventListener("pointerup", onPointerUp);
     dockWrapper.addEventListener("pointercancel", onPointerUp);
+
+    // Explicit Mobile Touch Support (Prevents iOS Safari & Android Chrome pointercancel gesture interruption)
+    dockWrapper.addEventListener("touchstart", (e) => {
+      if (e.touches && e.touches.length > 1) return;
+      const t = e.touches[0];
+      onPointerDown({
+        button: 0,
+        clientX: t.clientX,
+        clientY: t.clientY,
+        target: e.target
+      });
+    }, { passive: true });
+
+    dockWrapper.addEventListener("touchmove", (e) => {
+      if (!isPointerDown) return;
+      if (e.cancelable) e.preventDefault(); // Lock screen scroll during drag on mobile
+      const t = e.touches[0];
+      onPointerMove({
+        clientX: t.clientX,
+        clientY: t.clientY,
+        target: e.target
+      });
+    }, { passive: false });
+
+    dockWrapper.addEventListener("touchend", (e) => {
+      if (!isPointerDown) return;
+      const t = e.changedTouches[0] || e.touches[0];
+      onPointerUp({
+        clientX: t ? t.clientX : 0,
+        clientY: t ? t.clientY : 0,
+        target: e.target
+      });
+    }, { passive: true });
+
+    dockWrapper.addEventListener("touchcancel", (e) => {
+      if (!isPointerDown) return;
+      isPointerDown = false;
+      isDraggingDock = false;
+      resetDockWrapper();
+      if (lightCapsule) lightCapsule.classList.remove("dragging");
+      updateCapsulePosition(currentTabIndex, true);
+    }, { passive: true });
   }
 
   window.addEventListener("pointerup", () => {
@@ -1154,11 +1196,22 @@
     }
   });
   window.addEventListener("pointercancel", () => {
-    isPointerDown = false;
-    isDraggingDock = false;
-    resetDockWrapper();
-    if (lightCapsule) lightCapsule.classList.remove("dragging");
-    updateCapsulePosition(currentTabIndex, true);
+    if (isPointerDown || isDraggingDock) {
+      isPointerDown = false;
+      isDraggingDock = false;
+      resetDockWrapper();
+      if (lightCapsule) lightCapsule.classList.remove("dragging");
+      updateCapsulePosition(currentTabIndex, true);
+    }
+  });
+  window.addEventListener("touchend", () => {
+    if (isPointerDown || isDraggingDock) {
+      isPointerDown = false;
+      isDraggingDock = false;
+      resetDockWrapper();
+      if (lightCapsule) lightCapsule.classList.remove("dragging");
+      updateCapsulePosition(currentTabIndex, true);
+    }
   });
 
   setupButtonListeners();
