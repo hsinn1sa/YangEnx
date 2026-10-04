@@ -138,7 +138,13 @@
     -webkit-user-select: none;
     transform-origin: center center;
     will-change: transform;
-    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s ease, border-color 0.3s ease, backdrop-filter 0.3s ease;
+  }
+  .nav-tabs-wrapper.dock-pressed {
+    background: rgba(255, 255, 255, 0.012) !important;
+    backdrop-filter: blur(36px) !important;
+    -webkit-backdrop-filter: blur(36px) !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
   }
   .nav-tabs-wrapper:active { cursor: grabbing; }
 
@@ -161,33 +167,37 @@
     padding: 10px 14px;
     background: transparent;
     border: none;
-    color: rgba(255, 255, 255, 0.55);
+    color: rgba(255, 255, 255, 0.65);
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: color 0.25s ease, opacity 0.25s ease;
+    transition: color 0.25s ease;
     white-space: nowrap;
     position: relative;
     z-index: 3;
     border-radius: 9999px;
     user-select: none;
+    opacity: 1 !important;
   }
-  .tab-btn:hover { color: rgba(255, 255, 255, 0.85); }
+  .tab-btn:hover { color: rgba(255, 255, 255, 0.9); }
   .tab-btn.active {
-    color: #ffffff;
+    color: #ffffff !important;
     font-weight: 700;
+    opacity: 1 !important;
   }
   .tab-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    opacity: 1 !important;
   }
   .tab-icon svg {
     width: 19px;
     height: 19px;
     stroke-width: 2.2;
     transition: transform 0.2s ease, stroke 0.2s ease;
+    opacity: 1 !important;
   }
   .tab-btn:hover .tab-icon svg {
     transform: scale(1.08);
@@ -198,6 +208,7 @@
   }
   .tab-text {
     display: inline;
+    opacity: 1 !important;
   }
 
   /* 純淨中性冰霜高透光膠囊 Pill (極致清透玻璃質感) */
@@ -272,15 +283,15 @@
     }
     .nav-tabs-container {
       position: fixed;
-      bottom: 16px;
+      bottom: 20px;
       left: 0;
       right: 0;
-      padding: 0 10px;
+      padding: 0 16px;
       z-index: 10000;
       pointer-events: none;
     }
     .nav-tabs-wrapper {
-      max-width: 520px;
+      max-width: 440px;
       width: 100%;
       margin: 0 auto;
       pointer-events: auto;
@@ -290,40 +301,32 @@
       -webkit-backdrop-filter: blur(24px);
       border: 1px solid rgba(255, 255, 255, 0.16);
       border-radius: 9999px;
-      padding: 5px;
+      padding: 6px;
       overflow: hidden;
       touch-action: none;
       -webkit-tap-highlight-color: transparent;
       transform-origin: center center !important;
-      will-change: transform, opacity;
-      transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
     }
     .nav-tabs {
       display: flex;
       justify-content: space-around;
       align-items: center;
       width: 100%;
-      position: relative;
     }
     .tab-btn {
-      padding: 8px 3px;
+      padding: 11px 0;
       border-radius: 9999px;
       flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      font-size: 11.5px;
-      font-weight: 600;
-      white-space: nowrap;
     }
     .tab-text {
-      display: inline !important;
-      font-size: 11.5px !important;
+      display: none !important;
     }
     .tab-icon svg {
-      width: 17px !important;
-      height: 17px !important;
+      width: 22px !important;
+      height: 22px !important;
     }
     #main-content {
       padding: 0 12px 110px !important;
@@ -1033,18 +1036,19 @@
 
     if (dockWrapper) {
       dockWrapper.style.transformOrigin = 'center center';
-      dockWrapper.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.25s ease, backdrop-filter 0.25s ease';
+      dockWrapper.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1), backdrop-filter 0.25s ease, background-color 0.25s ease';
       dockWrapper.style.transform = 'scale(1.025)';
-      dockWrapper.style.opacity = '0.65';
+      dockWrapper.classList.add("dock-pressed");
     }
   }
 
   function resetDockWrapper() {
     if (!dockWrapper) return;
     dockWrapper.style.transformOrigin = 'center center';
-    dockWrapper.style.transition = 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.25), opacity 0.45s ease, backdrop-filter 0.45s ease';
+    dockWrapper.style.transition = 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.25), backdrop-filter 0.45s ease, background-color 0.45s ease';
     dockWrapper.style.transform = 'scale(1, 1)';
-    dockWrapper.style.opacity = '1';
+    dockWrapper.classList.remove("dock-pressed");
+    dockWrapper.style.opacity = '';
     setTimeout(() => {
       dockWrapper.style.transition = '';
     }, 450);
@@ -1084,22 +1088,20 @@
       if (dockWrapper) {
         dockWrapper.style.transition = 'none';
         dockWrapper.style.transformOrigin = 'center center';
+        dockWrapper.classList.add("dock-pressed");
 
         if (rawTargetLeft < 0) {
           const overshoot = Math.abs(rawTargetLeft);
           currentTargetLeft = 0;
           const stretchX = 1.025 + Math.min(0.015, overshoot * 0.0003);
           dockWrapper.style.transform = `scale(${stretchX}, 1.025)`;
-          dockWrapper.style.opacity = Math.max(0.45, 0.65 - overshoot * 0.0008).toFixed(3);
         } else if (rawTargetLeft > maxLeft) {
           const overshoot = rawTargetLeft - maxLeft;
           currentTargetLeft = maxLeft;
           const stretchX = 1.025 + Math.min(0.015, overshoot * 0.0003);
           dockWrapper.style.transform = `scale(${stretchX}, 1.025)`;
-          dockWrapper.style.opacity = Math.max(0.45, 0.65 - overshoot * 0.0008).toFixed(3);
         } else {
           dockWrapper.style.transform = 'scale(1.025)';
-          dockWrapper.style.opacity = '0.65';
         }
       }
 
