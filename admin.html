@@ -992,16 +992,18 @@
 
     if (dockWrapper) {
       dockWrapper.style.transformOrigin = 'center center';
-      dockWrapper.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)';
-      dockWrapper.style.transform = 'scale(1.018)';
+      dockWrapper.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.25s ease, backdrop-filter 0.25s ease';
+      dockWrapper.style.transform = 'scale(1.025)';
+      dockWrapper.style.opacity = '0.65';
     }
   }
 
   function resetDockWrapper() {
     if (!dockWrapper) return;
     dockWrapper.style.transformOrigin = 'center center';
-    dockWrapper.style.transition = 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.25)';
+    dockWrapper.style.transition = 'transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.25), opacity 0.45s ease, backdrop-filter 0.45s ease';
     dockWrapper.style.transform = 'scale(1, 1)';
+    dockWrapper.style.opacity = '1';
     setTimeout(() => {
       dockWrapper.style.transition = '';
     }, 450);
@@ -1040,21 +1042,23 @@
 
       if (dockWrapper) {
         dockWrapper.style.transition = 'none';
+        dockWrapper.style.transformOrigin = 'center center';
+
         if (rawTargetLeft < 0) {
           const overshoot = Math.abs(rawTargetLeft);
           currentTargetLeft = 0;
-          dockWrapper.style.transformOrigin = 'right center';
-          const stretchX = 1.018 + Math.min(0.022, overshoot * 0.0004);
-          dockWrapper.style.transform = `scale(${stretchX}, 1.018)`;
+          const stretchX = 1.025 + Math.min(0.015, overshoot * 0.0003);
+          dockWrapper.style.transform = `scale(${stretchX}, 1.025)`;
+          dockWrapper.style.opacity = Math.max(0.45, 0.65 - overshoot * 0.0008).toFixed(3);
         } else if (rawTargetLeft > maxLeft) {
           const overshoot = rawTargetLeft - maxLeft;
           currentTargetLeft = maxLeft;
-          dockWrapper.style.transformOrigin = 'left center';
-          const stretchX = 1.018 + Math.min(0.022, overshoot * 0.0004);
-          dockWrapper.style.transform = `scale(${stretchX}, 1.018)`;
+          const stretchX = 1.025 + Math.min(0.015, overshoot * 0.0003);
+          dockWrapper.style.transform = `scale(${stretchX}, 1.025)`;
+          dockWrapper.style.opacity = Math.max(0.45, 0.65 - overshoot * 0.0008).toFixed(3);
         } else {
-          dockWrapper.style.transformOrigin = 'center center';
-          dockWrapper.style.transform = 'scale(1.018)';
+          dockWrapper.style.transform = 'scale(1.025)';
+          dockWrapper.style.opacity = '0.65';
         }
       }
 
