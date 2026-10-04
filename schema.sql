@@ -96,3 +96,13 @@ CREATE TABLE IF NOT EXISTS app_files (
     version       TEXT NOT NULL,
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- 9. YangEnx Internal Maxx 設定表 (Supabase 儲存)
+CREATE TABLE IF NOT EXISTS internal_settings (
+    app_id               TEXT PRIMARY KEY REFERENCES license_applications(id) ON DELETE CASCADE,
+    latest_version       TEXT DEFAULT 'v1.0.0',
+    update_changelog     TEXT DEFAULT '',
+    stopped              BOOLEAN NOT NULL DEFAULT false,
+    stop_message         TEXT DEFAULT 'YangEnx Internal 停服維護中',
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);

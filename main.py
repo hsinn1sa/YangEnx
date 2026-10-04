@@ -917,6 +917,16 @@ def get_client_file_info(app_id: str):
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
     size = os.path.getsize(local_path) if os.path.exists(local_path) else 0
 
+    if size == 0 and supabase:
+        try:
+            res = supabase.storage.from_(BUCKET_NAME).list(app_id)
+            for item in res or []:
+                if item.get("name") == "Client.dll":
+                    size = item.get("metadata", {}).get("size", 1024) or 1024
+                    break
+        except Exception as e:
+            print(f"[Supabase Storage List Warning] {e}")
+
     return {
         "has_file": size > 0,
         "filename": "Client.dll" if size > 0 else None,
@@ -933,6 +943,16 @@ def get_client_public_info(app_secret: str = Query(...)):
     settings = get_app_settings(app_id)
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
     size = os.path.getsize(local_path) if os.path.exists(local_path) else 0
+
+    if size == 0 and supabase:
+        try:
+            res = supabase.storage.from_(BUCKET_NAME).list(app_id)
+            for item in res or []:
+                if item.get("name") == "Client.dll":
+                    size = item.get("metadata", {}).get("size", 1024) or 1024
+                    break
+        except Exception:
+            pass
 
     return {
         "status": "ok" if size > 0 else "no_file",
@@ -959,7 +979,7 @@ def download_client_file(app_secret: str = Query(...)):
     raise HTTPException(status_code=404, detail="Client file not uploaded yet")
 
 # ------------------------------------------------------------------
-# Internal.dll 相關 APIs
+# Internal.dll 相關 APIs (Supabase + Local Sync)
 # ------------------------------------------------------------------
 DEFAULT_INTERNAL_SETTINGS = {
     "latest_version": "v1.0.0",
@@ -970,6 +990,20 @@ DEFAULT_INTERNAL_SETTINGS = {
 
 def get_internal_settings(app_id: str) -> dict:
     settings = dict(DEFAULT_INTERNAL_SETTINGS)
+
+    if supabase:
+        try:
+            res = supabase.table("internal_settings").select("*").eq("app_id", app_id).execute()
+            if res.data:
+                row = res.data[0]
+                settings["latest_version"] = row.get("latest_version") or DEFAULT_INTERNAL_SETTINGS["latest_version"]
+                settings["update_changelog"] = row.get("update_changelog", "")
+                settings["stopped"] = bool(row.get("stopped", False))
+                settings["stop_message"] = row.get("stop_message") or DEFAULT_INTERNAL_SETTINGS["stop_message"]
+                return settings
+        except Exception as e:
+            print(f"[Supabase internal_settings Select Warning] {e}")
+
     json_file = os.path.join(UPLOADS_DIR, f"{app_id}_internal_settings.json")
     if os.path.exists(json_file):
         try:
@@ -988,16 +1022,25 @@ def set_internal_settings(app_id: str, latest_version: str, update_changelog: st
     new_stopped = current["stopped"] if stopped is None else bool(stopped)
     new_stop_message = current["stop_message"] if stop_message is None else stop_message.strip()
 
+    payload = {
+        "app_id": app_id,
+        "latest_version": latest_version,
+        "update_changelog": update_changelog,
+        "stopped": new_stopped,
+        "stop_message": new_stop_message or DEFAULT_INTERNAL_SETTINGS["stop_message"],
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    if supabase:
+        try:
+            supabase.table("internal_settings").upsert(payload).execute()
+        except Exception as e:
+            print(f"[Supabase internal_settings Upsert Warning] {e}")
+
     json_file = os.path.join(UPLOADS_DIR, f"{app_id}_internal_settings.json")
     try:
         with open(json_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "latest_version": latest_version,
-                "update_changelog": update_changelog,
-                "stopped": new_stopped,
-                "stop_message": new_stop_message or DEFAULT_INTERNAL_SETTINGS["stop_message"],
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }, f, ensure_ascii=False, indent=2)
+            json.dump(payload, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
 
@@ -1076,6 +1119,16 @@ def get_internal_file_info(app_id: str):
     settings = get_internal_settings(app_id)
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_YangEnx_Internal.dll")
     size = os.path.getsize(local_path) if os.path.exists(local_path) else 0
+
+    if size == 0 and supabase:
+        try:
+            res = supabase.storage.from_(BUCKET_NAME).list(app_id)
+            for item in res or []:
+                if item.get("name") == "YangEnx Internal.dll":
+                    size = item.get("metadata", {}).get("size", 1024) or 1024
+                    break
+        except Exception as e:
+            print(f"[Supabase Storage List Warning] {e}")
 
     return {
         "has_file": size > 0,

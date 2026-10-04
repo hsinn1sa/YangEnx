@@ -812,7 +812,7 @@
         <h2>應用程式維護模式與檔案熱更新</h2>
         <div style="margin-bottom:20px;">
           <label>選擇應用程式</label>
-          <select id="maintenance-app-select" onchange="fetchMaintenanceSettings(); fetchClientFileInfo(); fetchInternalFileInfo();"></select>
+          <select id="maintenance-app-select" onchange="onMaintenanceAppChange()"></select>
         </div>
 
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px;">
@@ -832,7 +832,16 @@
               <label>選擇 Client.dll 檔案</label>
               <input type="file" id="client-file-input" accept=".dll" style="width:100%;" />
             </div>
-            <button class="btn btn-gradient" style="width:100%;" onclick="uploadClientFile()">上傳 Client.dll 並更新</button>
+            <button class="btn btn-gradient" id="client-upload-btn" style="width:100%;" onclick="uploadClientFile()">上傳 Client.dll 並更新</button>
+            <div id="client-progress-container" style="display:none; margin-top:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:4px;">
+                <span style="color:var(--text-dim);">雲端同步上傳進度...</span>
+                <span id="client-progress-text" style="color:var(--cyan); font-weight:600;">0%</span>
+              </div>
+              <div style="width:100%; height:8px; background:#1a1a24; border-radius:4px; overflow:hidden; border:1px solid rgba(255,255,255,0.1);">
+                <div id="client-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--cyan), var(--purple)); transition:width 0.1s ease;"></div>
+              </div>
+            </div>
             <div id="upload-client-success" style="font-size:12px; margin-top:8px;"></div>
             <div id="upload-client-error" style="font-size:12px; color:var(--red); margin-top:4px;"></div>
           </div>
@@ -853,7 +862,16 @@
               <label>選擇 Internal.dll 檔案</label>
               <input type="file" id="internal-file-input" accept=".dll" style="width:100%;" />
             </div>
-            <button class="btn btn-gradient" style="width:100%; margin-bottom:14px;" onclick="uploadInternalFile()">上傳 Internal.dll 並更新</button>
+            <button class="btn btn-gradient" id="internal-upload-btn" style="width:100%; margin-bottom:10px;" onclick="uploadInternalFile()">上傳 Internal.dll 並更新</button>
+            <div id="internal-progress-container" style="display:none; margin-top:8px; margin-bottom:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:4px;">
+                <span style="color:var(--text-dim);">雲端同步上傳進度...</span>
+                <span id="internal-progress-text" style="color:var(--purple); font-weight:600;">0%</span>
+              </div>
+              <div style="width:100%; height:8px; background:#1a1a24; border-radius:4px; overflow:hidden; border:1px solid rgba(255,255,255,0.1);">
+                <div id="internal-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--purple), var(--cyan)); transition:width 0.1s ease;"></div>
+              </div>
+            </div>
 
             <div style="border-top:1px dashed var(--panel-border); padding-top:12px;">
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
@@ -1264,11 +1282,13 @@
     const token = document.getElementById("admin-token-input").value.trim();
     if (!token) return;
     adminToken = token;
+    localStorage.setItem("adminToken", token);
     fetchApplications();
   }
 
   function logout() {
     adminToken = "";
+    localStorage.removeItem("adminToken");
     document.getElementById("app").style.display = "none";
     document.getElementById("login-screen").style.display = "flex";
   }
@@ -1348,12 +1368,22 @@
     }).join("");
   }
 
+  function onMaintenanceAppChange() {
+    const appId = document.getElementById("maintenance-app-select").value;
+    if (appId) localStorage.setItem("selectedAppId", appId);
+    fetchMaintenanceSettings();
+    fetchClientFileInfo();
+    fetchInternalFileInfo();
+  }
+
   function updateAppSelects() {
     const ids = ["new-key-app", "filter-app-id", "maintenance-app-select", "blacklist-app-id", "broadcast-app-id"];
+    const savedAppId = localStorage.getItem("selectedAppId");
+
     ids.forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
-      const currentVal = el.value;
+      const currentVal = el.value || (id === "maintenance-app-select" ? savedAppId : "");
       let html = id === "filter-app-id" ? `<option value="">-- 所有應用程式 --</option>`
                : (id === "blacklist-app-id" || id === "broadcast-app-id" ? `<option value="">-- 全域 (跨所有App) --</option>` : "");
 
@@ -1363,6 +1393,8 @@
     });
 
     if (allApps.length > 0) {
+      const activeAppId = document.getElementById("maintenance-app-select").value;
+      if (activeAppId) localStorage.setItem("selectedAppId", activeAppId);
       fetchMaintenanceSettings();
       fetchClientFileInfo();
       fetchInternalFileInfo();
@@ -1652,7 +1684,7 @@
     try {
       const info = await apiFetch(`/api/admin/apps/${appId}/client-info`);
       if (info.has_file) {
-        infoEl.innerHTML = `檔案: <b>Client.dll</b> (${(info.size / 1024 / 1024).toFixed(2)} MB) | 最新版本: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b>`;
+        infoEl.innerHTML = `檔案: <b>Client.dll</b> (${(info.size / 1024 / 1024).toFixed(2)} MB) | 最新版本: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b> <button class="btn btn-sm btn-red" style="margin-left:8px;" onclick="deleteClientFile()">刪除 Client.dll</button>`;
       } else {
         infoEl.innerHTML = `<span style="color:var(--amber);">尚未上傳 Client.dll 檔案 (目前版本號: ${escapeHtml(info.version)})</span>`;
       }
@@ -1664,6 +1696,10 @@
     const fileInput = document.getElementById("client-file-input");
     const version = document.getElementById("client-version-input").value.trim();
     const changelog = document.getElementById("client-changelog-input").value.trim();
+    const btn = document.getElementById("client-upload-btn");
+    const progressContainer = document.getElementById("client-progress-container");
+    const progressBar = document.getElementById("client-progress-bar");
+    const progressText = document.getElementById("client-progress-text");
 
     if (!appId || !fileInput.files.length) { alert("請選擇 Client.dll 檔案"); return; }
 
@@ -1672,17 +1708,63 @@
     if (version) formData.append("version", version);
     formData.append("changelog", changelog);
 
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    if (progressContainer) progressContainer.style.display = "block";
+    if (progressBar) progressBar.style.width = "0%";
+    if (progressText) progressText.textContent = "0%";
+
     const xhr = new XMLHttpRequest();
     xhr.open("POST", API_BASE + `/api/admin/apps/${appId}/upload-client`, true);
     xhr.setRequestHeader("X-Admin-Token", adminToken);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        if (progressBar) progressBar.style.width = percent + "%";
+        if (progressText) progressText.textContent = percent + "%";
+      }
+    };
+
     xhr.onload = () => {
+      btn.disabled = false;
+      btn.style.opacity = "1";
       if (xhr.status === 200) {
+        if (progressBar) progressBar.style.width = "100%";
+        if (progressText) progressText.textContent = "100% 完成！";
         showToast("🎉 Client.dll 上傳成功！");
         fileInput.value = "";
+        setTimeout(() => {
+          if (progressContainer) progressContainer.style.display = "none";
+        }, 2000);
         fetchClientFileInfo();
-      } else alert("上傳失敗：" + xhr.responseText);
+        fetchMaintenanceSettings();
+      } else {
+        alert("上傳失敗：" + xhr.responseText);
+        if (progressContainer) progressContainer.style.display = "none";
+      }
     };
+
+    xhr.onerror = () => {
+      btn.disabled = false;
+      btn.style.opacity = "1";
+      alert("網路連線錯誤，上傳失敗");
+      if (progressContainer) progressContainer.style.display = "none";
+    };
+
     xhr.send(formData);
+  }
+
+  async function deleteClientFile() {
+    const appId = document.getElementById("maintenance-app-select").value;
+    if (!appId || !confirm("確定要刪除 Client.dll 檔案？")) return;
+    try {
+      await apiFetch(`/api/admin/apps/${appId}/delete-client`, { method: "DELETE" });
+      showToast("🗑️ 已成功刪除 Client.dll 檔案");
+      fetchClientFileInfo();
+    } catch (err) {
+      alert("刪除失敗：" + err.message);
+    }
   }
 
   // --- YangEnx Internal Maxx (Internal.dll) Functions ---
@@ -1742,6 +1824,10 @@
     const fileInput = document.getElementById("internal-file-input");
     const version = document.getElementById("internal-version-input").value.trim();
     const changelog = document.getElementById("internal-changelog-input").value.trim();
+    const btn = document.getElementById("internal-upload-btn");
+    const progressContainer = document.getElementById("internal-progress-container");
+    const progressBar = document.getElementById("internal-progress-bar");
+    const progressText = document.getElementById("internal-progress-text");
 
     if (!appId || !fileInput.files.length) { alert("請選擇 YangEnx Internal.dll 檔案"); return; }
 
@@ -1750,16 +1836,49 @@
     if (version) formData.append("version", version);
     formData.append("changelog", changelog);
 
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    if (progressContainer) progressContainer.style.display = "block";
+    if (progressBar) progressBar.style.width = "0%";
+    if (progressText) progressText.textContent = "0%";
+
     const xhr = new XMLHttpRequest();
     xhr.open("POST", API_BASE + `/api/admin/apps/${appId}/upload-internal`, true);
     xhr.setRequestHeader("X-Admin-Token", adminToken);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        if (progressBar) progressBar.style.width = percent + "%";
+        if (progressText) progressText.textContent = percent + "%";
+      }
+    };
+
     xhr.onload = () => {
+      btn.disabled = false;
+      btn.style.opacity = "1";
       if (xhr.status === 200) {
+        if (progressBar) progressBar.style.width = "100%";
+        if (progressText) progressText.textContent = "100% 完成！";
         showToast("🎉 YangEnx Internal.dll 上傳成功！");
         fileInput.value = "";
+        setTimeout(() => {
+          if (progressContainer) progressContainer.style.display = "none";
+        }, 2000);
         fetchInternalFileInfo();
-      } else alert("上傳失敗：" + xhr.responseText);
+      } else {
+        alert("上傳失敗：" + xhr.responseText);
+        if (progressContainer) progressContainer.style.display = "none";
+      }
     };
+
+    xhr.onerror = () => {
+      btn.disabled = false;
+      btn.style.opacity = "1";
+      alert("網路連線錯誤，上傳失敗");
+      if (progressContainer) progressContainer.style.display = "none";
+    };
+
     xhr.send(formData);
   }
 
@@ -1845,6 +1964,16 @@
   document.getElementById("admin-token-input").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
   window.addEventListener("resize", initLightBeam);
   setInterval(() => { if (adminToken) fetchKeys(); }, 8000);
+
+  // 重新載入時自動恢復 Admin Token 登入與所選應用程式，維持 Supabase 紀錄狀態
+  window.addEventListener("DOMContentLoaded", () => {
+    const savedToken = localStorage.getItem("adminToken");
+    if (savedToken) {
+      adminToken = savedToken;
+      document.getElementById("admin-token-input").value = savedToken;
+      fetchApplications();
+    }
+  });
 </script>
 </body>
 </html>
