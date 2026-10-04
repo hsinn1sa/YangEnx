@@ -344,10 +344,16 @@ def verify(req: VerifyRequest, request: Request, _: None = Depends(check_rate_li
 
     # 2. 檢查維護模式與版本號
     settings = get_app_settings(app_id)
-    if req.version != settings["latest_version"]:
+    internal_s = get_internal_settings(app_id)
+
+    if settings.get("maintenance_mode"):
+        return VerifyResponse(status="maintenance", message=settings.get("maintenance_message") or "卡密系統維護中")
+
+    if internal_s.get("stopped"):
+        return VerifyResponse(status="maintenance", message=internal_s.get("stop_message") or "YangEnx Internal 停服維護中")
+
+    if req.version != settings["latest_version"] and req.version != internal_s.get("latest_version"):
         return VerifyResponse(status="version_mismatch", message=f"偵測到新版本，請更新至 {settings['latest_version']}。")
-    if settings["maintenance_mode"]:
-        return VerifyResponse(status="maintenance", message=settings["maintenance_message"])
 
     # 3. 查詢卡密
     res = (
@@ -386,6 +392,16 @@ def verify(req: VerifyRequest, request: Request, _: None = Depends(check_rate_li
 
     server_ts, server_ms, sig = generate_server_verification(req.app_secret, req.license_key, req.hwid)
     dynamic_payload = settings.get("dynamic_payload", "")
+
+    # 註冊即時在線連線監控
+    active_connections[req.license_key] = {
+        "app_id": app_id,
+        "username": row["username"],
+        "hwid": req.hwid,
+        "ip": client_ip,
+        "connected_at": datetime.now(timezone.utc).isoformat(),
+        "last_seen": time.time()
+    }
 
     log_event(row["username"], "VERIFY_SUCCESS", "認證成功登入主程式", req.hwid, client_ip)
     return VerifyResponse(
@@ -524,8 +540,13 @@ def heartbeat(req: HeartbeatRequest, request: Request):
         return VerifyResponse(status="blacklisted", message=bl_msg)
 
     settings = get_app_settings(app_id)
-    if settings["maintenance_mode"]:
-        return VerifyResponse(status="maintenance", message=settings["maintenance_message"])
+    internal_s = get_internal_settings(app_id)
+
+    if settings.get("maintenance_mode"):
+        return VerifyResponse(status="maintenance", message=settings.get("maintenance_message") or "卡密系統維護中")
+
+    if internal_s.get("stopped"):
+        return VerifyResponse(status="maintenance", message=internal_s.get("stop_message") or "YangEnx Internal 停服維護中")
 
     res = (
         supabase.table("license_keys")
@@ -552,6 +573,16 @@ def heartbeat(req: HeartbeatRequest, request: Request):
     supabase.table("license_keys").update({
         "last_seen_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", row["id"]).execute()
+
+    # 更新在線連線維護狀態
+    active_connections[req.license_key] = {
+        "app_id": app_id,
+        "username": row["username"],
+        "hwid": req.hwid,
+        "ip": client_ip,
+        "connected_at": active_connections.get(req.license_key, {}).get("connected_at") or datetime.now(timezone.utc).isoformat(),
+        "last_seen": time.time()
+    }
 
     server_ts, server_ms, sig = generate_server_verification(req.app_secret, req.license_key, req.hwid)
     return VerifyResponse(
@@ -675,6 +706,11 @@ async def delete_key(key_id: int):
 
 @app.get("/api/admin/online", dependencies=[Depends(require_admin)])
 def get_online():
+    now_ts = time.time()
+    for lk, entry in list(active_connections.items()):
+        if "ws" not in entry and (now_ts - entry.get("last_seen", 0) > 35):
+            active_connections.pop(lk, None)
+
     return [
         {
             "license_key": license_key,
