@@ -1354,7 +1354,7 @@
           <td class="key-cell">${k.license_key} <button class="icon-btn" onclick="copyToClipboard('${k.license_key}')">📋</button></td>
           <td>${escapeHtml(appName)}</td>
           <td>${escapeHtml(k.username)}</td>
-          <td><span class="hwid-tag">${k.hwid ? '已綁定 (' + k.max_devices + '台' : '未綁定'}</span></td>
+          <td><span class="hwid-tag">${k.hwid ? '已綁定 (' + k.max_devices + '台)' : '未綁定'}</span></td>
           <td><span class="online-dot ${isOnline ? 'on' : 'off'}"><span class="dot"></span>${isOnline ? '在線' : '離線'}</span></td>
           <td>${new Date(k.expires_at).toLocaleString("zh-TW")}</td>
           <td><span class="badge ${badgeClass}">${statusText}</span></td>
