@@ -130,6 +130,7 @@ class MaintenanceSettingsRequest(BaseModel):
     maintenance_mode: bool
     maintenance_message: str = "卡密系統維護中"
     latest_version: str = "v1.0.0"
+    update_changelog: Optional[str] = ""
 
 class DynamicPayloadRequest(BaseModel):
     app_id: str
@@ -779,7 +780,9 @@ async def update_settings(req: MaintenanceSettingsRequest):
     current = get_app_settings(req.app_id)
     was_on = current["maintenance_mode"]
 
-    set_app_settings(req.app_id, req.maintenance_mode, req.maintenance_message, req.latest_version, current.get("update_changelog", ""), current.get("dynamic_payload", ""))
+    new_changelog = req.update_changelog if req.update_changelog is not None else current.get("update_changelog", "")
+
+    set_app_settings(req.app_id, req.maintenance_mode, req.maintenance_message, req.latest_version, new_changelog, current.get("dynamic_payload", ""))
 
     if req.maintenance_mode and not was_on:
         await broadcast_to_app(req.app_id, "maintenance", req.maintenance_message)
