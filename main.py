@@ -158,10 +158,45 @@ class SaveInternalSettingsRequest(BaseModel):
 # 工具函式
 # ------------------------------------------------------------------
 def get_client_ip(request: Request) -> str:
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        return cf_ip.strip()
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "127.0.0.1"
+
+def verify_download_authorization(app_id: str, license_key: Optional[str], hwid: Optional[str], client_ip: str, x_admin_token: Optional[str] = None):
+    # 若提供管理員 Token 且驗證通過，允許管理員免卡密測試下載
+    if ADMIN_TOKEN and x_admin_token == ADMIN_TOKEN:
+        return
+
+    if not license_key or not hwid:
+        raise HTTPException(status_code=403, detail="無下載權限：必須提供有效的卡密 (license_key) 與硬體鎖 (hwid)")
+
+    # 1. 黑名單檢查
+    is_bl, bl_msg = check_blacklist(app_id, hwid, client_ip)
+    if is_bl:
+        raise HTTPException(status_code=403, detail=f"無下載權限：{bl_msg}")
+
+    # 2. 查詢卡密狀態與到期日
+    res = supabase.table("license_keys").select("*").eq("license_key", license_key).eq("app_id", app_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=403, detail="無下載權限：卡密不存在或無效")
+
+    row = res.data[0]
+    if row["status"] != "active":
+        raise HTTPException(status_code=403, detail="無下載權限：此卡密已被停用")
+
+    expires_at = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=403, detail="無下載權限：此卡密已過期")
+
+    # 3. 裝置綁定檢查
+    hwid_status, hwid_msg, _ = check_and_bind_hwid(row, hwid)
+    if hwid_status != "ok":
+        raise HTTPException(status_code=403, detail=f"無下載權限：{hwid_msg}")
+
 
 def log_event(actor: str, event: str, detail: str = "", hwid: str = "", ip_address: str = ""):
     if not supabase:
@@ -428,7 +463,14 @@ async def ws_license(
     owner_id: Optional[str] = Query(None),
     app_name: Optional[str] = Query(None),
 ):
-    client_ip = websocket.client.host if websocket.client else "127.0.0.1"
+    cf_ip = websocket.headers.get("CF-Connecting-IP")
+    forwarded = websocket.headers.get("X-Forwarded-For")
+    if cf_ip:
+        client_ip = cf_ip.strip()
+    elif forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    else:
+        client_ip = websocket.client.host if websocket.client else "127.0.0.1"
 
     res_app = supabase.table("license_applications").select("*").eq("app_secret", app_secret).execute()
     if not res_app.data:
@@ -885,7 +927,7 @@ def ensure_bucket_exists():
         buckets = supabase.storage.list_buckets()
         exists = any(b.name == BUCKET_NAME for b in buckets)
         if not exists:
-            supabase.storage.create_bucket(BUCKET_NAME, options={"public": True})
+            supabase.storage.create_bucket(BUCKET_NAME, options={"public": False})
     except Exception:
         pass
 
@@ -998,9 +1040,19 @@ def get_client_public_info(app_secret: str = Query(...)):
     }
 
 @app.get("/api/client/download")
-def download_client_file(app_secret: str = Query(...)):
+def download_client_file(
+    request: Request,
+    app_secret: str = Query(...),
+    license_key: Optional[str] = Query(None),
+    hwid: Optional[str] = Query(None),
+    x_admin_token: Optional[str] = Header(None)
+):
+    client_ip = get_client_ip(request)
     application = resolve_app(app_secret)
     app_id = application["id"]
+
+    verify_download_authorization(app_id, license_key, hwid, client_ip, x_admin_token)
+
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
     if os.path.exists(local_path):
         return FileResponse(local_path, filename="Client.dll", media_type="application/octet-stream")
@@ -1202,9 +1254,23 @@ def get_internal_public_info(app_secret: str = Query(...)):
     }
 
 @app.get("/api/internal/download")
-def download_internal_file(app_secret: str = Query(...)):
+def download_internal_file(
+    request: Request,
+    app_secret: str = Query(...),
+    license_key: Optional[str] = Query(None),
+    hwid: Optional[str] = Query(None),
+    x_admin_token: Optional[str] = Header(None)
+):
+    client_ip = get_client_ip(request)
     application = resolve_app(app_secret)
     app_id = application["id"]
+
+    internal_s = get_internal_settings(app_id)
+    if internal_s.get("stopped", False) and not (ADMIN_TOKEN and x_admin_token == ADMIN_TOKEN):
+        raise HTTPException(status_code=503, detail=internal_s.get("stop_message") or "YangEnx Internal 停服維護中")
+
+    verify_download_authorization(app_id, license_key, hwid, client_ip, x_admin_token)
+
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_YangEnx_Internal.dll")
     if os.path.exists(local_path):
         return FileResponse(local_path, filename="YangEnx Internal.dll", media_type="application/octet-stream")
