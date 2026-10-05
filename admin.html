@@ -1327,8 +1327,11 @@
       logout();
       throw new Error("UNAUTHORIZED");
     }
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "請求失敗");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const errorMsg = typeof data.detail === "object" ? JSON.stringify(data.detail) : (data.detail || "請求失敗");
+      throw new Error(errorMsg);
+    }
     return data;
   }
 
@@ -1832,7 +1835,7 @@
     try {
       await apiFetch(`/api/admin/apps/${appId}/internal-settings`, {
         method: "PUT",
-        body: JSON.stringify({ latest_version: version, update_changelog: changelog, stopped, stop_message: stopMessage })
+        body: JSON.stringify({ app_id: appId, latest_version: version, update_changelog: changelog, stopped, stop_message: stopMessage })
       });
       showToast("⚙️ 已儲存 YangEnx Internal Maxx 設定！");
       fetchInternalFileInfo();

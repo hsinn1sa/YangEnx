@@ -149,7 +149,7 @@ class BlacklistCreateRequest(BaseModel):
     reason: Optional[str] = "管理者手動封禁"
 
 class SaveInternalSettingsRequest(BaseModel):
-    app_id: str
+    app_id: Optional[str] = None
     latest_version: str = "v1.0.0"
     update_changelog: str = ""
     stopped: bool = False
@@ -172,31 +172,28 @@ def verify_download_authorization(app_id: str, license_key: Optional[str], hwid:
     if ADMIN_TOKEN and x_admin_token == ADMIN_TOKEN:
         return
 
-    if not license_key or not hwid:
-        raise HTTPException(status_code=403, detail="無下載權限：必須提供有效的卡密 (license_key) 與硬體鎖 (hwid)")
-
     # 1. 黑名單檢查
-    is_bl, bl_msg = check_blacklist(app_id, hwid, client_ip)
+    is_bl, bl_msg = check_blacklist(app_id, hwid or "", client_ip)
     if is_bl:
         raise HTTPException(status_code=403, detail=f"無下載權限：{bl_msg}")
 
-    # 2. 查詢卡密狀態與到期日
-    res = supabase.table("license_keys").select("*").eq("license_key", license_key).eq("app_id", app_id).execute()
-    if not res.data:
-        raise HTTPException(status_code=403, detail="無下載權限：卡密不存在或無效")
+    # 若有傳入卡密與硬體鎖，則進行卡密狀態、到期日與綁定檢查
+    if license_key and hwid:
+        res = supabase.table("license_keys").select("*").eq("license_key", license_key).eq("app_id", app_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=403, detail="無下載權限：卡密不存在或無效")
 
-    row = res.data[0]
-    if row["status"] != "active":
-        raise HTTPException(status_code=403, detail="無下載權限：此卡密已被停用")
+        row = res.data[0]
+        if row["status"] != "active":
+            raise HTTPException(status_code=403, detail="無下載權限：此卡密已被停用")
 
-    expires_at = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
-    if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=403, detail="無下載權限：此卡密已過期")
+        expires_at = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=403, detail="無下載權限：此卡密已過期")
 
-    # 3. 裝置綁定檢查
-    hwid_status, hwid_msg, _ = check_and_bind_hwid(row, hwid)
-    if hwid_status != "ok":
-        raise HTTPException(status_code=403, detail=f"無下載權限：{hwid_msg}")
+        hwid_status, hwid_msg, _ = check_and_bind_hwid(row, hwid)
+        if hwid_status != "ok":
+            raise HTTPException(status_code=403, detail=f"無下載權限：{hwid_msg}")
 
 
 def log_event(actor: str, event: str, detail: str = "", hwid: str = "", ip_address: str = ""):
