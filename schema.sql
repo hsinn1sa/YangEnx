@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS license_applications (
     name          TEXT NOT NULL,
     owner_id      TEXT NOT NULL,
     app_secret    TEXT UNIQUE NOT NULL,
+    app_type      TEXT NOT NULL DEFAULT 'dll',  -- 'exe' 或 'dll'，決定維護頁面顯示哪種 UI
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

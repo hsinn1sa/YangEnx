@@ -759,6 +759,10 @@
         <div class="app-toolbar">
           <div class="app-create-row">
             <input type="text" id="new-app-name" placeholder="應用程式名稱 (例如: GameHack)" />
+            <select id="new-app-type" style="width:130px;">
+              <option value="dll">DLL 類型</option>
+              <option value="exe">EXE 類型</option>
+            </select>
             <button class="btn btn-gradient" onclick="createApplication()">新增應用程式</button>
           </div>
           <div id="app-create-error" style="color:var(--red); font-size:12px;"></div>
@@ -855,7 +859,7 @@
       </div>
     </div>
 
-    <!-- TAB 6: App Maintenance & DLL Updates (包含完整 Client.dll / YangEnx Internal Maxx / 維護模式 3大區塊) -->
+    <!-- TAB 6: App Maintenance & DLL Updates (根據 app_type 動態顯示 EXE/DLL 不同 UI) -->
     <div id="tab-maintenance" class="tab-content">
       <div class="panel">
         <h2>應用程式維護模式與檔案熱更新</h2>
@@ -864,100 +868,8 @@
           <select id="maintenance-app-select" onchange="onMaintenanceAppChange()"></select>
         </div>
 
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px;">
-          <!-- Block 1: Client.dll Upload -->
-          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
-            <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">Client.dll 上傳更新</h3>
-            <div id="current-client-file-info" style="font-size:12px; margin-bottom:12px; color:var(--text-dim);">載入中...</div>
-            <div style="margin-bottom:10px;">
-              <label>最新版本號</label>
-              <input type="text" id="client-version-input" placeholder="v1.0.0" style="width:100%;" />
-            </div>
-            <div style="margin-bottom:10px;">
-              <label>更新說明 (Changelog)</label>
-              <textarea id="client-changelog-input" rows="2" style="width:100%;"></textarea>
-            </div>
-            <div style="margin-bottom:12px;">
-              <label>選擇 Client.dll 檔案</label>
-              <input type="file" id="client-file-input" accept=".dll" style="width:100%;" />
-            </div>
-            <button class="btn btn-gradient" id="client-upload-btn" style="width:100%;" onclick="uploadClientFile()">上傳 Client.dll 並更新</button>
-            <div id="client-progress-container" style="display:none; margin-top:12px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:4px;">
-                <span style="color:var(--text-dim);">雲端同步上傳進度...</span>
-                <span id="client-progress-text" style="color:var(--cyan); font-weight:600;">0%</span>
-              </div>
-              <div style="width:100%; height:8px; background:#1a1a24; border-radius:4px; overflow:hidden; border:1px solid rgba(255,255,255,0.1);">
-                <div id="client-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--cyan), var(--purple)); transition:width 0.1s ease;"></div>
-              </div>
-            </div>
-            <div id="upload-client-success" style="font-size:12px; margin-top:8px;"></div>
-            <div id="upload-client-error" style="font-size:12px; color:var(--red); margin-top:4px;"></div>
-          </div>
-
-          <!-- Block 2: YangEnx Internal Maxx (Internal.dll) Upload & Stop Settings -->
-          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
-            <h3 style="font-size:14px; color:var(--purple); margin:0 0 12px;">YangEnx Internal Maxx (Internal.dll) 上傳與停服</h3>
-            <div id="current-internal-file-info" style="font-size:12px; margin-bottom:12px; color:var(--text-dim);">載入中...</div>
-            <div style="margin-bottom:10px;">
-              <label>Internal 最新版本號</label>
-              <input type="text" id="internal-version-input" placeholder="v1.0.0" style="width:100%;" />
-            </div>
-            <div style="margin-bottom:10px;">
-              <label>Internal 更新說明</label>
-              <textarea id="internal-changelog-input" rows="2" style="width:100%;"></textarea>
-            </div>
-            <div style="margin-bottom:12px;">
-              <label>選擇 Internal.dll 檔案</label>
-              <input type="file" id="internal-file-input" accept=".dll" style="width:100%;" />
-            </div>
-            <button class="btn btn-gradient" id="internal-upload-btn" style="width:100%; margin-bottom:10px;" onclick="uploadInternalFile()">上傳 Internal.dll 並更新</button>
-            <div id="internal-progress-container" style="display:none; margin-top:8px; margin-bottom:14px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:4px;">
-                <span style="color:var(--text-dim);">雲端同步上傳進度...</span>
-                <span id="internal-progress-text" style="color:var(--purple); font-weight:600;">0%</span>
-              </div>
-              <div style="width:100%; height:8px; background:#1a1a24; border-radius:4px; overflow:hidden; border:1px solid rgba(255,255,255,0.1);">
-                <div id="internal-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--purple), var(--cyan)); transition:width 0.1s ease;"></div>
-              </div>
-            </div>
-
-            <div style="border-top:1px dashed var(--panel-border); padding-top:12px;">
-              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                <span style="font-size:13px;">Internal 停服開關</span>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="internal-stopped-toggle" onchange="onInternalStoppedToggle()">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-              <div id="internal-stop-status-tag" class="badge badge-active" style="margin-bottom:10px;">Internal 狀態：正常</div>
-              <div style="margin-bottom:10px;">
-                <label>Internal 停服提示訊息</label>
-                <input type="text" id="internal-stop-message" style="width:100%;" placeholder="YangEnx Internal 停服維護中" />
-              </div>
-              <button class="btn btn-ghost" style="width:100%;" onclick="saveInternalSettings()">儲存 Internal 設定</button>
-            </div>
-          </div>
-
-          <!-- Block 3: Maintenance Settings -->
-          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
-            <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">維護模式與停服設定</h3>
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-              <span style="font-size:13px;">維護模式狀態</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="maintenance-toggle" onchange="onMaintenanceToggle()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-            <div id="maintenance-status-tag" class="badge badge-active" style="margin-bottom:14px;">維護模式：關閉</div>
-            <div style="margin-bottom:14px;">
-              <label>維護提示訊息</label>
-              <input type="text" id="maintenance-message" style="width:100%;" placeholder="系統維護中..." />
-            </div>
-            <button class="btn btn-gradient" style="width:100%;" onclick="saveMaintenanceSettings()">儲存維護設定</button>
-            <div id="maintenance-error" style="font-size:12px; color:var(--red); margin-top:8px;"></div>
-          </div>
-        </div>
+        <!-- 動態渲染區域 -->
+        <div id="maintenance-dynamic-content"></div>
       </div>
     </div>
 
@@ -1595,7 +1507,7 @@
       const secretDisplay = showSecret ? app.app_secret : "••••••••••••••••••••••••••••••••";
       return `
         <div class="app-card">
-          <div class="app-card-name">📱 ${escapeHtml(app.name)}</div>
+          <div class="app-card-name">📱 ${escapeHtml(app.name)} <span class="badge ${app.app_type === 'exe' ? 'badge-active' : 'badge-disabled'}" style="font-size:11px; vertical-align:middle; margin-left:6px;">${(app.app_type || 'dll').toUpperCase()}</span></div>
           <div class="app-field">
             <span class="app-field-label">Owner ID</span>
             <div class="app-field-value">
@@ -1626,9 +1538,155 @@
   function onMaintenanceAppChange() {
     const appId = document.getElementById("maintenance-app-select").value;
     if (appId) localStorage.setItem("selectedAppId", appId);
-    fetchMaintenanceSettings();
-    fetchClientFileInfo();
-    fetchInternalFileInfo();
+    renderMaintenanceDynamicContent();
+  }
+
+  function getSelectedAppType() {
+    const appId = document.getElementById("maintenance-app-select").value;
+    const app = allApps.find(a => a.id === appId);
+    return (app && app.app_type) ? app.app_type : "dll";
+  }
+
+  function renderMaintenanceDynamicContent() {
+    const container = document.getElementById("maintenance-dynamic-content");
+    if (!container) return;
+    const appId = document.getElementById("maintenance-app-select").value;
+    if (!appId) { container.innerHTML = ""; return; }
+
+    const appType = getSelectedAppType();
+
+    if (appType === "exe") {
+      // EXE 類型：只顯示版本號 + 停服開關 + 停服訊息
+      container.innerHTML = `
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px;">
+          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
+            <h3 style="font-size:14px; color:var(--green); margin:0 0 12px;">EXE 應用程式版本與停服設定</h3>
+            <div style="margin-bottom:14px;">
+              <label>最新版本號</label>
+              <input type="text" id="client-version-input" placeholder="v1.0.0" style="width:100%;" />
+            </div>
+            <div style="border-top:1px dashed var(--panel-border); padding-top:14px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <span style="font-size:13px;">停服開關</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="maintenance-toggle" onchange="onMaintenanceToggle()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div id="maintenance-status-tag" class="badge badge-active" style="margin-bottom:14px;">停服狀態：正常運作</div>
+              <div style="margin-bottom:14px;">
+                <label>停服提示訊息</label>
+                <input type="text" id="maintenance-message" style="width:100%;" placeholder="系統維護中..." />
+              </div>
+              <button class="btn btn-gradient" style="width:100%;" onclick="saveMaintenanceSettings()">儲存設定</button>
+              <div id="maintenance-error" style="font-size:12px; color:var(--red); margin-top:8px;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      fetchMaintenanceSettings();
+    } else {
+      // DLL 類型：完整三區塊
+      container.innerHTML = `
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px;">
+          <!-- Block 1: Client.dll Upload -->
+          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
+            <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">Client.dll 上傳更新</h3>
+            <div id="current-client-file-info" style="font-size:12px; margin-bottom:12px; color:var(--text-dim);">載入中...</div>
+            <div style="margin-bottom:10px;">
+              <label>最新版本號</label>
+              <input type="text" id="client-version-input" placeholder="v1.0.0" style="width:100%;" />
+            </div>
+            <div style="margin-bottom:10px;">
+              <label>更新說明 (Changelog)</label>
+              <textarea id="client-changelog-input" rows="2" style="width:100%;"></textarea>
+            </div>
+            <div style="margin-bottom:12px;">
+              <label>選擇 Client.dll 檔案</label>
+              <input type="file" id="client-file-input" accept=".dll" style="width:100%;" />
+            </div>
+            <button class="btn btn-gradient" id="client-upload-btn" style="width:100%;" onclick="uploadClientFile()">上傳 Client.dll 並更新</button>
+            <div id="client-progress-container" style="display:none; margin-top:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:4px;">
+                <span style="color:var(--text-dim);">雲端同步上傳進度...</span>
+                <span id="client-progress-text" style="color:var(--cyan); font-weight:600;">0%</span>
+              </div>
+              <div style="width:100%; height:8px; background:#1a1a24; border-radius:4px; overflow:hidden; border:1px solid rgba(255,255,255,0.1);">
+                <div id="client-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--cyan), var(--purple)); transition:width 0.1s ease;"></div>
+              </div>
+            </div>
+            <div id="upload-client-success" style="font-size:12px; margin-top:8px;"></div>
+            <div id="upload-client-error" style="font-size:12px; color:var(--red); margin-top:4px;"></div>
+          </div>
+
+          <!-- Block 2: YangEnx Internal Maxx (Internal.dll) Upload & Stop Settings -->
+          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
+            <h3 style="font-size:14px; color:var(--purple); margin:0 0 12px;">YangEnx Internal Maxx (Internal.dll) 上傳與停服</h3>
+            <div id="current-internal-file-info" style="font-size:12px; margin-bottom:12px; color:var(--text-dim);">載入中...</div>
+            <div style="margin-bottom:10px;">
+              <label>Internal 最新版本號</label>
+              <input type="text" id="internal-version-input" placeholder="v1.0.0" style="width:100%;" />
+            </div>
+            <div style="margin-bottom:10px;">
+              <label>Internal 更新說明</label>
+              <textarea id="internal-changelog-input" rows="2" style="width:100%;"></textarea>
+            </div>
+            <div style="margin-bottom:12px;">
+              <label>選擇 Internal.dll 檔案</label>
+              <input type="file" id="internal-file-input" accept=".dll" style="width:100%;" />
+            </div>
+            <button class="btn btn-gradient" id="internal-upload-btn" style="width:100%; margin-bottom:10px;" onclick="uploadInternalFile()">上傳 Internal.dll 並更新</button>
+            <div id="internal-progress-container" style="display:none; margin-top:8px; margin-bottom:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:4px;">
+                <span style="color:var(--text-dim);">雲端同步上傳進度...</span>
+                <span id="internal-progress-text" style="color:var(--purple); font-weight:600;">0%</span>
+              </div>
+              <div style="width:100%; height:8px; background:#1a1a24; border-radius:4px; overflow:hidden; border:1px solid rgba(255,255,255,0.1);">
+                <div id="internal-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--purple), var(--cyan)); transition:width 0.1s ease;"></div>
+              </div>
+            </div>
+
+            <div style="border-top:1px dashed var(--panel-border); padding-top:12px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <span style="font-size:13px;">Internal 停服開關</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="internal-stopped-toggle" onchange="onInternalStoppedToggle()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div id="internal-stop-status-tag" class="badge badge-active" style="margin-bottom:10px;">Internal 狀態：正常</div>
+              <div style="margin-bottom:10px;">
+                <label>Internal 停服提示訊息</label>
+                <input type="text" id="internal-stop-message" style="width:100%;" placeholder="YangEnx Internal 停服維護中" />
+              </div>
+              <button class="btn btn-ghost" style="width:100%;" onclick="saveInternalSettings()">儲存 Internal 設定</button>
+            </div>
+          </div>
+
+          <!-- Block 3: Maintenance Settings -->
+          <div style="background:#0d0d14; border:1px solid var(--panel-border); border-radius:8px; padding:16px;">
+            <h3 style="font-size:14px; color:var(--cyan); margin:0 0 12px;">維護模式與停服設定</h3>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+              <span style="font-size:13px;">維護模式狀態</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="maintenance-toggle" onchange="onMaintenanceToggle()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div id="maintenance-status-tag" class="badge badge-active" style="margin-bottom:14px;">維護模式：關閉</div>
+            <div style="margin-bottom:14px;">
+              <label>維護提示訊息</label>
+              <input type="text" id="maintenance-message" style="width:100%;" placeholder="系統維護中..." />
+            </div>
+            <button class="btn btn-gradient" style="width:100%;" onclick="saveMaintenanceSettings()">儲存維護設定</button>
+            <div id="maintenance-error" style="font-size:12px; color:var(--red); margin-top:8px;"></div>
+          </div>
+        </div>
+      `;
+      fetchMaintenanceSettings();
+      fetchClientFileInfo();
+      fetchInternalFileInfo();
+    }
   }
 
   function updateAppSelects() {
@@ -1642,7 +1700,10 @@
       let html = id === "filter-app-id" ? `<option value="">-- 所有應用程式 --</option>`
                : (id === "blacklist-app-id" || id === "broadcast-app-id" ? `<option value="">-- 全域 (跨所有App) --</option>` : "");
 
-      html += allApps.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
+      html += allApps.map(a => {
+        const typeLabel = (a.app_type || 'dll').toUpperCase();
+        return `<option value="${a.id}">${escapeHtml(a.name)} [${typeLabel}]</option>`;
+      }).join("");
       el.innerHTML = html;
       if (currentVal && allApps.some(a => a.id === currentVal)) el.value = currentVal;
     });
@@ -1650,9 +1711,7 @@
     if (allApps.length > 0) {
       const activeAppId = document.getElementById("maintenance-app-select").value;
       if (activeAppId) localStorage.setItem("selectedAppId", activeAppId);
-      fetchMaintenanceSettings();
-      fetchClientFileInfo();
-      fetchInternalFileInfo();
+      renderMaintenanceDynamicContent();
     }
   }
 
@@ -1664,9 +1723,10 @@
 
   async function createApplication() {
     const name = document.getElementById("new-app-name").value.trim();
+    const appType = document.getElementById("new-app-type").value;
     if (!name) return;
     try {
-      await apiFetch("/api/admin/apps", { method: "POST", body: JSON.stringify({ name }) });
+      await apiFetch("/api/admin/apps", { method: "POST", body: JSON.stringify({ name, app_type: appType }) });
       document.getElementById("new-app-name").value = "";
       fetchApplications();
       showToast("🎉 成功新增應用程式！");
@@ -1894,10 +1954,15 @@
     if (!appId) return;
     try {
       const s = await apiFetch(`/api/admin/settings?app_id=${encodeURIComponent(appId)}`);
-      document.getElementById("maintenance-toggle").checked = s.maintenance_mode;
-      document.getElementById("maintenance-message").value = s.maintenance_message;
-      document.getElementById("client-version-input").value = s.latest_version;
-      document.getElementById("client-changelog-input").value = s.update_changelog || "";
+      const toggleEl = document.getElementById("maintenance-toggle");
+      const messageEl = document.getElementById("maintenance-message");
+      const versionEl = document.getElementById("client-version-input");
+      const changelogEl = document.getElementById("client-changelog-input");
+
+      if (toggleEl) toggleEl.checked = s.maintenance_mode;
+      if (messageEl) messageEl.value = s.maintenance_message;
+      if (versionEl) versionEl.value = s.latest_version;
+      if (changelogEl) changelogEl.value = s.update_changelog || "";
       updateMaintenanceStatusTag(s.maintenance_mode);
     } catch (err) {}
   }
@@ -1905,7 +1970,12 @@
   function updateMaintenanceStatusTag(isOn) {
     const tag = document.getElementById("maintenance-status-tag");
     if (!tag) return;
-    tag.textContent = isOn ? "維護模式：開啟中" : "維護模式：關閉";
+    const appType = getSelectedAppType();
+    if (appType === "exe") {
+      tag.textContent = isOn ? "停服狀態：已停服" : "停服狀態：正常運作";
+    } else {
+      tag.textContent = isOn ? "維護模式：開啟中" : "維護模式：關閉";
+    }
     tag.className = "badge " + (isOn ? "badge-disabled" : "badge-active");
   }
 
@@ -1916,20 +1986,26 @@
   async function saveMaintenanceSettings() {
     const appId = document.getElementById("maintenance-app-select").value;
     if (!appId) return;
-    const isOn = document.getElementById("maintenance-toggle").checked;
-    const message = document.getElementById("maintenance-message").value.trim() || "維護中";
-    const version = document.getElementById("client-version-input").value.trim() || "v1.0.0";
-    const changelog = document.getElementById("client-changelog-input").value.trim();
+    const toggleEl = document.getElementById("maintenance-toggle");
+    const messageEl = document.getElementById("maintenance-message");
+    const versionEl = document.getElementById("client-version-input");
+    const changelogEl = document.getElementById("client-changelog-input");
+
+    const isOn = toggleEl ? toggleEl.checked : false;
+    const message = (messageEl ? messageEl.value.trim() : "") || "維護中";
+    const version = (versionEl ? versionEl.value.trim() : "") || "v1.0.0";
+    const changelog = changelogEl ? changelogEl.value.trim() : "";
 
     try {
       await apiFetch("/api/admin/settings", {
         method: "PUT",
         body: JSON.stringify({ app_id: appId, maintenance_mode: isOn, maintenance_message: message, latest_version: version, update_changelog: changelog })
       });
-      showToast("⚙️ 維護設定與更新說明儲存成功！");
+      showToast("⚙️ 設定儲存成功！");
       fetchKeys();
     } catch (err) {
-      document.getElementById("maintenance-error").textContent = err.message;
+      const errEl = document.getElementById("maintenance-error");
+      if (errEl) errEl.textContent = err.message;
     }
   }
 
@@ -1937,8 +2013,7 @@
     const appId = document.getElementById("maintenance-app-select").value;
     const infoEl = document.getElementById("current-client-file-info");
     if (!appId || !infoEl) return;
-    try {
-      const info = await apiFetch(`/api/admin/apps/${appId}/client-info`);
+    try {      const info = await apiFetch(`/api/admin/apps/${appId}/client-info`);
       if (info.has_file) {
         infoEl.innerHTML = `檔案: <b>Client.dll</b> (${(info.size / 1024 / 1024).toFixed(2)} MB) | 最新版本: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b> <button class="btn btn-sm btn-red" style="margin-left:8px;" onclick="deleteClientFile()">刪除 Client.dll</button>`;
       } else {

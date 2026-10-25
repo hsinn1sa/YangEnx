@@ -124,6 +124,7 @@ class CreateKeyRequest(BaseModel):
 
 class CreateApplicationRequest(BaseModel):
     name: str
+    app_type: str = "dll"  # 'exe' 或 'dll'
 
 class MaintenanceSettingsRequest(BaseModel):
     app_id: str
@@ -641,6 +642,9 @@ def heartbeat(req: HeartbeatRequest, request: Request):
 @app.post("/api/admin/apps", dependencies=[Depends(require_admin)])
 def create_application(req: CreateApplicationRequest):
     name = req.name.strip()
+    app_type = req.app_type.strip().lower() if req.app_type else "dll"
+    if app_type not in ("exe", "dll"):
+        raise HTTPException(status_code=400, detail="app_type 必須為 'exe' 或 'dll'")
     if not name:
         raise HTTPException(status_code=400, detail="應用程式名稱不可為空")
 
@@ -649,6 +653,7 @@ def create_application(req: CreateApplicationRequest):
             "name": name,
             "owner_id": generate_owner_id(),
             "app_secret": generate_app_secret(),
+            "app_type": app_type,
         }
         try:
             res = supabase.table("license_applications").insert(data).execute()
