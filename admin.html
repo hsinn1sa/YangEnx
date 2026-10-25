@@ -2037,7 +2037,7 @@
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
     if (version) formData.append("version", version);
-    formData.append("changelog", changelog);
+    if (changelog) formData.append("changelog", changelog);
 
     btn.disabled = true;
     btn.style.opacity = "0.6";
@@ -2165,7 +2165,7 @@
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
     if (version) formData.append("version", version);
-    formData.append("changelog", changelog);
+    if (changelog) formData.append("changelog", changelog);
 
     btn.disabled = true;
     btn.style.opacity = "0.6";

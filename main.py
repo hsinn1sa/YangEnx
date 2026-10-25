@@ -238,9 +238,9 @@ def get_app_settings(app_id: str) -> dict:
         print(f"[Supabase Select Warning] {e}")
     return settings
 
-def set_app_settings(app_id: str, maintenance_mode: bool, maintenance_message: str, latest_version: str, update_changelog: str = "", dynamic_payload: str = ""):
+def set_app_settings(app_id: str, maintenance_mode: bool, maintenance_message: str, latest_version: str, update_changelog: str = "", dynamic_payload: str = "") -> Optional[str]:
     if not supabase:
-        return
+        return "Supabase client not initialized"
     try:
         supabase.table("app_settings").upsert({
             "app_id": app_id,
@@ -251,8 +251,10 @@ def set_app_settings(app_id: str, maintenance_mode: bool, maintenance_message: s
             "dynamic_payload": dynamic_payload,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).execute()
+        return None
     except Exception as e:
         print(f"[Supabase Upsert Error] {e}")
+        return str(e)
 
 def require_admin(x_admin_token: str = Header(...)):
     if not ADMIN_TOKEN or x_admin_token != ADMIN_TOKEN:
@@ -784,7 +786,9 @@ async def update_settings(req: MaintenanceSettingsRequest):
 
     new_changelog = req.update_changelog if req.update_changelog is not None else current.get("update_changelog", "")
 
-    set_app_settings(req.app_id, req.maintenance_mode, req.maintenance_message, req.latest_version, new_changelog, current.get("dynamic_payload", ""))
+    err = set_app_settings(req.app_id, req.maintenance_mode, req.maintenance_message, req.latest_version, new_changelog, current.get("dynamic_payload", ""))
+    if err:
+        raise HTTPException(status_code=500, detail=f"寫入 Supabase 資料表 app_settings 失敗，請確認資料表存在：{err}")
 
     if req.maintenance_mode and not was_on:
         await broadcast_to_app(req.app_id, "maintenance", req.maintenance_message)
@@ -946,7 +950,7 @@ async def upload_client_file(
     get_application_or_404(app_id)
     settings = get_app_settings(app_id)
     latest_version = version.strip() if version and version.strip() else settings["latest_version"]
-    update_changelog = changelog.strip() if changelog is not None else settings.get("update_changelog", "")
+    update_changelog = changelog.strip() if (changelog is not None and changelog.strip()) else settings.get("update_changelog", "")
 
     set_app_settings(app_id, settings["maintenance_mode"], settings["maintenance_message"], latest_version, update_changelog, settings.get("dynamic_payload", ""))
 
@@ -1110,7 +1114,7 @@ def get_internal_settings(app_id: str) -> dict:
             pass
     return settings
 
-def set_internal_settings(app_id: str, latest_version: str, update_changelog: str = "", stopped: Optional[bool] = None, stop_message: Optional[str] = None):
+def set_internal_settings(app_id: str, latest_version: str, update_changelog: str = "", stopped: Optional[bool] = None, stop_message: Optional[str] = None) -> Optional[str]:
     current = get_internal_settings(app_id)
     new_stopped = current["stopped"] if stopped is None else bool(stopped)
     new_stop_message = current["stop_message"] if stop_message is None else stop_message.strip()
@@ -1124,10 +1128,12 @@ def set_internal_settings(app_id: str, latest_version: str, update_changelog: st
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
+    supabase_err = None
     if supabase:
         try:
             supabase.table("internal_settings").upsert(payload).execute()
         except Exception as e:
+            supabase_err = str(e)
             print(f"[Supabase internal_settings Upsert Warning] {e}")
 
     json_file = os.path.join(UPLOADS_DIR, f"{app_id}_internal_settings.json")
@@ -1136,6 +1142,8 @@ def set_internal_settings(app_id: str, latest_version: str, update_changelog: st
             json.dump(payload, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
+
+    return supabase_err
 
 @app.post("/api/admin/apps/{app_id}/upload-internal", dependencies=[Depends(require_admin)])
 async def upload_internal_file(
@@ -1147,7 +1155,7 @@ async def upload_internal_file(
     get_application_or_404(app_id)
     settings = get_internal_settings(app_id)
     latest_version = version.strip() if version and version.strip() else settings["latest_version"]
-    update_changelog = changelog.strip() if changelog is not None else settings.get("update_changelog", "")
+    update_changelog = changelog.strip() if (changelog is not None and changelog.strip()) else settings.get("update_changelog", "")
 
     set_internal_settings(app_id, latest_version, update_changelog)
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_YangEnx_Internal.dll")
@@ -1179,13 +1187,15 @@ async def upload_internal_file(
 @app.put("/api/admin/apps/{app_id}/internal-settings", dependencies=[Depends(require_admin)])
 def update_internal_settings_api(app_id: str, req: SaveInternalSettingsRequest):
     get_application_or_404(app_id)
-    set_internal_settings(
+    err = set_internal_settings(
         app_id,
         latest_version=req.latest_version,
         update_changelog=req.update_changelog,
         stopped=req.stopped,
         stop_message=req.stop_message
     )
+    if err:
+        raise HTTPException(status_code=500, detail=f"寫入 Supabase 資料表 internal_settings 失敗，請確認已在 SQL Editor 建立資料表！錯誤詳情：{err}")
     return {"ok": True}
 
 @app.delete("/api/admin/apps/{app_id}/delete-internal", dependencies=[Depends(require_admin)])
@@ -1203,7 +1213,8 @@ async def delete_internal_file(app_id: str):
     except Exception:
         pass
 
-    set_internal_settings(app_id, "v1.0.0", "", False, "YangEnx Internal 停服維護中")
+    current = get_internal_settings(app_id)
+    set_internal_settings(app_id, current["latest_version"], current.get("update_changelog", ""), current.get("stopped", False), current.get("stop_message", "YangEnx Internal 停服維護中"))
     return {"ok": True, "message": "已成功刪除 Internal.dll 檔案"}
 
 @app.get("/api/admin/apps/{app_id}/internal-info", dependencies=[Depends(require_admin)])
