@@ -55,10 +55,18 @@ RATE_LIMIT_WINDOW = 60  # 秒
 def check_rate_limit(request: Request):
     client_ip = get_client_ip(request)
     now = time.time()
-    ip_request_timestamps[client_ip] = [t for t in ip_request_timestamps[client_ip] if now - t < RATE_LIMIT_WINDOW]
-    if len(ip_request_timestamps[client_ip]) >= RATE_LIMIT_MAX:
+    valid_timestamps = [t for t in ip_request_timestamps.get(client_ip, []) if now - t < RATE_LIMIT_WINDOW]
+    if len(valid_timestamps) >= RATE_LIMIT_MAX:
         raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試 (Rate limit exceeded)")
-    ip_request_timestamps[client_ip].append(now)
+    valid_timestamps.append(now)
+    ip_request_timestamps[client_ip] = valid_timestamps
+
+    # 定期防止字典無限膨脹 (每累積超過 100 個 IP 清理一次過期 key)
+    if len(ip_request_timestamps) > 100:
+        for ip in list(ip_request_timestamps.keys()):
+            ip_request_timestamps[ip] = [t for t in ip_request_timestamps[ip] if now - t < RATE_LIMIT_WINDOW]
+            if not ip_request_timestamps[ip]:
+                ip_request_timestamps.pop(ip, None)
 
 # ------------------------------------------------------------------
 # WebSocket 連線註冊表
@@ -103,6 +111,7 @@ class HeartbeatRequest(BaseModel):
     license_key: str
     hwid: str
     app_secret: str
+    version: Optional[str] = None
     owner_id: Optional[str] = None
 
 class VerifyResponse(BaseModel):
@@ -311,25 +320,41 @@ def check_blacklist(app_id: str, hwid: str, client_ip: str) -> tuple[bool, str]:
         print(f"[Check Blacklist Warning] {e}")
     return False, ""
 
+def clean_active_connections():
+    now_ts = time.time()
+    for lk, entry in list(active_connections.items()):
+        if "ws" not in entry and (now_ts - entry.get("last_seen", 0) > 60):
+            active_connections.pop(lk, None)
+
+def normalize_version(v: Optional[str]) -> str:
+    """去除前後空白及開頭的 v/V，使 v1.0.0 與 1.0.0 能夠等價比對"""
+    if not v:
+        return ""
+    clean = v.strip()
+    if clean.lower().startswith("v"):
+        clean = clean[1:].strip()
+    return clean
+
 def parse_hwids(hwid_str: Optional[str]) -> List[str]:
     if not hwid_str:
         return []
     try:
         if hwid_str.startswith("["):
-            return json.loads(hwid_str)
+            return [str(h).strip().lower() for h in json.loads(hwid_str)]
     except Exception:
         pass
-    return [hwid_str]
+    return [hwid_str.strip().lower()]
 
 def check_and_bind_hwid(row: dict, input_hwid: str) -> tuple[str, str, Optional[List[str]]]:
+    clean_input = input_hwid.strip().lower()
     bound = parse_hwids(row.get("hwid"))
     max_dev = row.get("max_devices", 1)
 
-    if input_hwid in bound:
+    if clean_input in bound:
         return "ok", "驗證成功", None
 
     if len(bound) < max_dev:
-        new_bound = bound + [input_hwid]
+        new_bound = bound + [clean_input]
         return "ok", "新裝置綁定成功", new_bound
 
     return "hwid_mismatch", f"此卡密已綁定滿 {max_dev} 台裝置 (現有: {len(bound)} 台)", None
@@ -378,18 +403,29 @@ def verify(req: VerifyRequest, request: Request, _: None = Depends(check_rate_li
         log_event(req.license_key or "UNKNOWN", "BLACKLISTED", bl_msg, req.hwid, client_ip)
         return VerifyResponse(status="blacklisted", message=bl_msg)
 
-    # 2. 檢查維護模式與版本號
+    # 2. 檢查維護模式與版本號 (區分 EXE 與 DLL 邏輯)
+    app_type = (application.get("app_type") or "dll").lower()
     settings = get_app_settings(app_id)
-    internal_s = get_internal_settings(app_id)
 
     if settings.get("maintenance_mode"):
         return VerifyResponse(status="maintenance", message=settings.get("maintenance_message") or "卡密系統維護中")
 
-    if internal_s.get("stopped"):
-        return VerifyResponse(status="maintenance", message=internal_s.get("stop_message") or "YangEnx Internal 停服維護中")
+    if app_type == "exe":
+        # EXE 應用程式：只校驗主程式最新版本，完全獨立不受 DLL 停服影響
+        if normalize_version(req.version) != normalize_version(settings["latest_version"]):
+            return VerifyResponse(status="version_mismatch", message=f"偵測到新版本，請更新至 {settings['latest_version']}。")
+    else:
+        # DLL 應用程式：校驗 Client.dll 或 Internal.dll 版本與各自停服開關
+        internal_s = get_internal_settings(app_id)
+        if internal_s.get("stopped"):
+            return VerifyResponse(status="maintenance", message=internal_s.get("stop_message") or "YangEnx Internal 停服維護中")
 
-    if req.version != settings["latest_version"] and req.version != internal_s.get("latest_version"):
-        return VerifyResponse(status="version_mismatch", message=f"偵測到新版本，請更新至 {settings['latest_version']}。")
+        client_ver = normalize_version(settings["latest_version"])
+        internal_ver = normalize_version(internal_s.get("latest_version"))
+        req_ver = normalize_version(req.version)
+
+        if req_ver != client_ver and req_ver != internal_ver:
+            return VerifyResponse(status="version_mismatch", message=f"偵測到新版本，請更新至 {settings['latest_version']}。")
 
     # 3. 查詢卡密
     res = (
@@ -493,17 +529,34 @@ async def ws_license(
         await websocket.close()
         return
 
-    # 2. 檢查維護模式與版本
+    # 2. 檢查維護模式與版本 (區分 EXE 與 DLL 邏輯)
+    app_type = (application.get("app_type") or "dll").lower()
     settings = get_app_settings(app_id)
-    if version and version != settings["latest_version"]:
-        await websocket.send_json({"status": "version_mismatch", "message": f"請更新至 {settings['latest_version']}"})
+
+    if settings.get("maintenance_mode"):
+        await websocket.send_json({"status": "maintenance", "message": settings.get("maintenance_message") or "卡密系統維護中"})
         await websocket.close()
         return
 
-    if settings["maintenance_mode"]:
-        await websocket.send_json({"status": "maintenance", "message": settings["maintenance_message"]})
-        await websocket.close()
-        return
+    if app_type == "exe":
+        if version and normalize_version(version) != normalize_version(settings["latest_version"]):
+            await websocket.send_json({"status": "version_mismatch", "message": f"請更新至 {settings['latest_version']}"})
+            await websocket.close()
+            return
+    else:
+        internal_s = get_internal_settings(app_id)
+        if internal_s.get("stopped"):
+            await websocket.send_json({"status": "maintenance", "message": internal_s.get("stop_message") or "YangEnx Internal 停服維護中"})
+            await websocket.close()
+            return
+        if version:
+            client_ver = normalize_version(settings["latest_version"])
+            internal_ver = normalize_version(internal_s.get("latest_version"))
+            req_ver = normalize_version(version)
+            if req_ver != client_ver and req_ver != internal_ver:
+                await websocket.send_json({"status": "version_mismatch", "message": f"請更新至 {settings['latest_version']}"})
+                await websocket.close()
+                return
 
     # 3. 檢查卡密狀態
     res = (
@@ -582,14 +635,25 @@ def heartbeat(req: HeartbeatRequest, request: Request):
     if is_bl:
         return VerifyResponse(status="blacklisted", message=bl_msg)
 
+    app_type = (application.get("app_type") or "dll").lower()
     settings = get_app_settings(app_id)
-    internal_s = get_internal_settings(app_id)
 
     if settings.get("maintenance_mode"):
         return VerifyResponse(status="maintenance", message=settings.get("maintenance_message") or "卡密系統維護中")
 
-    if internal_s.get("stopped"):
-        return VerifyResponse(status="maintenance", message=internal_s.get("stop_message") or "YangEnx Internal 停服維護中")
+    if app_type == "exe":
+        if req.version and normalize_version(req.version) != normalize_version(settings["latest_version"]):
+            return VerifyResponse(status="version_mismatch", message=f"偵測到新版本，請更新至 {settings['latest_version']}。")
+    else:
+        internal_s = get_internal_settings(app_id)
+        if internal_s.get("stopped"):
+            return VerifyResponse(status="maintenance", message=internal_s.get("stop_message") or "YangEnx Internal 停服維護中")
+        if req.version:
+            client_ver = normalize_version(settings["latest_version"])
+            internal_ver = normalize_version(internal_s.get("latest_version"))
+            req_ver = normalize_version(req.version)
+            if req_ver != client_ver and req_ver != internal_ver:
+                return VerifyResponse(status="version_mismatch", message=f"偵測到新版本，請更新至 {settings['latest_version']}。")
 
     res = (
         supabase.table("license_keys")
@@ -670,6 +734,15 @@ def create_application(req: CreateApplicationRequest):
 def list_applications():
     res = supabase.table("license_applications").select("*").order("created_at", desc=True).execute()
     return res.data
+
+@app.patch("/api/admin/apps/{app_id}/toggle-type", dependencies=[Depends(require_admin)])
+def toggle_app_type(app_id: str):
+    app = get_application_or_404(app_id)
+    current_type = (app.get("app_type") or "dll").lower()
+    new_type = "exe" if current_type == "dll" else "dll"
+
+    res = supabase.table("license_applications").update({"app_type": new_type}).eq("id", app_id).execute()
+    return res.data[0] if res.data else {"id": app_id, "app_type": new_type}
 
 @app.delete("/api/admin/apps/{app_id}", dependencies=[Depends(require_admin)])
 async def delete_application(app_id: str):
@@ -753,10 +826,7 @@ async def delete_key(key_id: int):
 
 @app.get("/api/admin/online", dependencies=[Depends(require_admin)])
 def get_online():
-    now_ts = time.time()
-    for lk, entry in list(active_connections.items()):
-        if "ws" not in entry and (now_ts - entry.get("last_seen", 0) > 35):
-            active_connections.pop(lk, None)
+    clean_active_connections()
 
     return [
         {
@@ -828,6 +898,7 @@ async def send_broadcast(req: BroadcastRequest):
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
+    clean_active_connections()
     count = 0
     for license_key, entry in list(active_connections.items()):
         if not target_app_id or entry.get("app_id") == target_app_id:
@@ -902,6 +973,7 @@ async def add_blacklist(req: BlacklistCreateRequest):
         raise HTTPException(status_code=500, detail=f"寫入 Supabase 失敗：請確認在 Supabase SQL Editor 中已執行 SQL 建立 blacklists 資料表！錯誤詳情：{e}")
 
     # 即時踢掉所有符合此黑名單的線上用戶
+    clean_active_connections()
     kicked_count = 0
     for license_key, entry in list(active_connections.items()):
         if target_app_id and entry.get("app_id") != target_app_id:
@@ -1062,13 +1134,19 @@ def download_client_file(
 
     verify_download_authorization(app_id, license_key, hwid, client_ip, x_admin_token)
 
-    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+    # 優先從本機快取提供 (極致速度且節省雲端流量)
     if os.path.exists(local_path):
         return FileResponse(local_path, filename="Client.dll", media_type="application/octet-stream")
 
     try:
         data = supabase.storage.from_(BUCKET_NAME).download(f"{app_id}/Client.dll")
         if data:
+            # 下載成功後自動快取到本機硬碟，供後續下載直接使用
+            try:
+                with open(local_path, "wb") as f:
+                    f.write(data)
+            except Exception:
+                pass
             return Response(content=data, media_type="application/octet-stream", headers={"Content-Disposition": 'attachment; filename="Client.dll"'})
     except Exception:
         pass
@@ -1287,13 +1365,19 @@ def download_internal_file(
 
     verify_download_authorization(app_id, license_key, hwid, client_ip, x_admin_token)
 
-    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_YangEnx_Internal.dll")
+    # 優先從本機快取提供 (極致速度且節省雲端流量)
     if os.path.exists(local_path):
         return FileResponse(local_path, filename="YangEnx Internal.dll", media_type="application/octet-stream")
 
     try:
         data = supabase.storage.from_(BUCKET_NAME).download(f"{app_id}/YangEnx Internal.dll")
         if data:
+            # 下載成功後自動快取到本機硬碟，供後續下載直接秒傳
+            try:
+                with open(local_path, "wb") as f:
+                    f.write(data)
+            except Exception:
+                pass
             return Response(content=data, media_type="application/octet-stream", headers={"Content-Disposition": 'attachment; filename="YangEnx Internal.dll"'})
     except Exception:
         pass

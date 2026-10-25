@@ -1526,6 +1526,7 @@
             </div>
           </div>
           <div class="app-card-actions">
+            <button class="btn btn-sm btn-ghost" onclick="toggleAppType('${app.id}')">切換為 ${(app.app_type === 'exe' ? 'DLL' : 'EXE')} 模式</button>
             <button class="btn btn-sm btn-ghost" onclick="copySnippet('${escapeHtml(app.name)}','${app.owner_id}','${app.app_secret}')">C# SDK 代碼</button>
             <button class="btn btn-sm btn-amber" onclick="rotateAppSecret('${app.id}')">重設密鑰</button>
             <button class="btn btn-sm btn-red" onclick="deleteApplication('${app.id}')">刪除</button>
@@ -1712,6 +1713,16 @@
       const activeAppId = document.getElementById("maintenance-app-select").value;
       if (activeAppId) localStorage.setItem("selectedAppId", activeAppId);
       renderMaintenanceDynamicContent();
+    }
+  }
+
+  async function toggleAppType(appId) {
+    try {
+      const updated = await apiFetch(`/api/admin/apps/${appId}/toggle-type`, { method: "PATCH" });
+      showToast(`🔄 已成功切換為 ${updated.app_type.toUpperCase()} 模式！`);
+      fetchApplications();
+    } catch (err) {
+      alert("切換失敗：" + err.message);
     }
   }
 
@@ -2053,7 +2064,7 @@
       if (e.lengthComputable) {
         const percent = Math.round((e.loaded / e.total) * 100);
         if (progressBar) progressBar.style.width = percent + "%";
-        if (progressText) progressText.textContent = percent + "%";
+        if (progressText) progressText.textContent = percent === 100 ? "100% (雲端同步寫入中...)" : percent + "%";
       }
     };
 
@@ -2181,7 +2192,7 @@
       if (e.lengthComputable) {
         const percent = Math.round((e.loaded / e.total) * 100);
         if (progressBar) progressBar.style.width = percent + "%";
-        if (progressText) progressText.textContent = percent + "%";
+        if (progressText) progressText.textContent = percent === 100 ? "100% (雲端同步寫入中...)" : percent + "%";
       }
     };
 
