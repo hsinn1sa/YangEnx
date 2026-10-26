@@ -1134,22 +1134,33 @@ def download_client_file(
 
     verify_download_authorization(app_id, license_key, hwid, client_ip, x_admin_token)
 
+    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
+
     # 優先從本機快取提供 (極致速度且節省雲端流量)
     if os.path.exists(local_path):
         return FileResponse(local_path, filename="Client.dll", media_type="application/octet-stream")
 
-    try:
-        data = supabase.storage.from_(BUCKET_NAME).download(f"{app_id}/Client.dll")
-        if data:
-            # 下載成功後自動快取到本機硬碟，供後續下載直接使用
-            try:
-                with open(local_path, "wb") as f:
-                    f.write(data)
-            except Exception:
-                pass
-            return Response(content=data, media_type="application/octet-stream", headers={"Content-Disposition": 'attachment; filename="Client.dll"'})
-    except Exception:
-        pass
+    if supabase:
+        try:
+            data = supabase.storage.from_(BUCKET_NAME).download(f"{app_id}/Client.dll")
+            if data and isinstance(data, (bytes, bytearray)):
+                # 下載成功後自動快取到本機硬碟，供後續下載直接使用
+                try:
+                    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                    with open(local_path, "wb") as f:
+                        f.write(data)
+                except Exception:
+                    pass
+                return Response(
+                    content=data,
+                    media_type="application/octet-stream",
+                    headers={
+                        "Content-Disposition": 'attachment; filename="Client.dll"',
+                        "Content-Length": str(len(data))
+                    }
+                )
+        except Exception as e:
+            print(f"[Supabase Client Download Error] {e}")
 
     raise HTTPException(status_code=404, detail="Client file not uploaded yet")
 
@@ -1340,6 +1351,16 @@ def get_internal_public_info(app_secret: str = Query(...)):
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_YangEnx_Internal.dll")
     size = os.path.getsize(local_path) if os.path.exists(local_path) else 0
 
+    if size == 0 and supabase:
+        try:
+            res = supabase.storage.from_(BUCKET_NAME).list(app_id)
+            for item in res or []:
+                if item.get("name") == "YangEnx Internal.dll":
+                    size = item.get("metadata", {}).get("size", 1024) or 1024
+                    break
+        except Exception as e:
+            print(f"[Supabase Storage List Warning] {e}")
+
     return {
         "status": "ok" if size > 0 else "no_file",
         "version": settings["latest_version"],
@@ -1365,21 +1386,32 @@ def download_internal_file(
 
     verify_download_authorization(app_id, license_key, hwid, client_ip, x_admin_token)
 
+    local_path = os.path.join(UPLOADS_DIR, f"{app_id}_YangEnx_Internal.dll")
+
     # 優先從本機快取提供 (極致速度且節省雲端流量)
     if os.path.exists(local_path):
         return FileResponse(local_path, filename="YangEnx Internal.dll", media_type="application/octet-stream")
 
-    try:
-        data = supabase.storage.from_(BUCKET_NAME).download(f"{app_id}/YangEnx Internal.dll")
-        if data:
-            # 下載成功後自動快取到本機硬碟，供後續下載直接秒傳
-            try:
-                with open(local_path, "wb") as f:
-                    f.write(data)
-            except Exception:
-                pass
-            return Response(content=data, media_type="application/octet-stream", headers={"Content-Disposition": 'attachment; filename="YangEnx Internal.dll"'})
-    except Exception:
-        pass
+    if supabase:
+        try:
+            data = supabase.storage.from_(BUCKET_NAME).download(f"{app_id}/YangEnx Internal.dll")
+            if data and isinstance(data, (bytes, bytearray)):
+                # 下載成功後自動快取到本機硬碟，供後續下載直接秒傳
+                try:
+                    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                    with open(local_path, "wb") as f:
+                        f.write(data)
+                except Exception:
+                    pass
+                return Response(
+                    content=data,
+                    media_type="application/octet-stream",
+                    headers={
+                        "Content-Disposition": 'attachment; filename="YangEnx Internal.dll"',
+                        "Content-Length": str(len(data))
+                    }
+                )
+        except Exception as e:
+            print(f"[Supabase Internal Download Error] {e}")
 
     raise HTTPException(status_code=404, detail="YangEnx Internal.dll file not uploaded yet")
