@@ -79,15 +79,16 @@ async def push_status_to_key(license_key: str, status: str, message: str, extra:
     entry = active_connections.get(license_key)
     if entry is None:
         return
-    ws = entry["ws"]
-    payload = {"status": status, "message": message}
-    if extra:
-        payload.update(extra)
-    try:
-        await ws.send_json(payload)
-        await ws.close()
-    except Exception as e:
-        print(f"[WebSocket Push Error] {e}")
+    ws = entry.get("ws")
+    if ws:
+        payload = {"status": status, "message": message}
+        if extra:
+            payload.update(extra)
+        try:
+            await ws.send_json(payload)
+            await ws.close()
+        except Exception as e:
+            print(f"[WebSocket Push Error] {e}")
     active_connections.pop(license_key, None)
 
 async def broadcast_to_app(app_id: Optional[str], status: str, message: str, extra: Optional[dict] = None):
@@ -619,7 +620,7 @@ async def ws_license(
         pass
     finally:
         entry = active_connections.get(license_key)
-        if entry is not None and entry["ws"] is websocket:
+        if entry is not None and entry.get("ws") is websocket:
             active_connections.pop(license_key, None)
 
 # ------------------------------------------------------------------
@@ -902,11 +903,13 @@ async def send_broadcast(req: BroadcastRequest):
     count = 0
     for license_key, entry in list(active_connections.items()):
         if not target_app_id or entry.get("app_id") == target_app_id:
-            try:
-                await entry["ws"].send_json(announcement_payload)
-                count += 1
-            except Exception:
-                pass
+            ws = entry.get("ws")
+            if ws:
+                try:
+                    await ws.send_json(announcement_payload)
+                    count += 1
+                except Exception:
+                    pass
 
     if supabase:
         try:
@@ -981,7 +984,11 @@ async def add_blacklist(req: BlacklistCreateRequest):
         user_hwid = (entry.get("hwid") or "").lower()
         user_ip = entry.get("ip") or ""
         if (b_type == "hwid" and user_hwid == val.lower()) or (b_type == "ip" and user_ip == val):
-            await push_status_to_key(license_key, "blacklisted", f"已被系統封禁: {req.reason}")
+            try:
+                await push_status_to_key(license_key, "blacklisted", f"已被系統封禁: {req.reason}")
+            except Exception as e:
+                print(f"[Kick Error] {e}")
+                active_connections.pop(license_key, None)
             kicked_count += 1
 
     return {"ok": True, "data": res.data[0] if res.data else {}, "kicked_count": kicked_count}
