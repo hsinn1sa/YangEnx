@@ -1925,7 +1925,7 @@
       document.getElementById("blacklist-value").value = "";
       document.getElementById("blacklist-reason").value = "";
       fetchBlacklists();
-      fetchOnlineUsers();
+      fetchOnline();
       fetchKeys();
       showToast(`🚫 成功封禁！已即時踢掉 ${res.kicked_count} 個線上連線`);
     } catch (err) {
@@ -2269,7 +2269,7 @@
         body: JSON.stringify({ app_id: targetAppId, type, value, reason: "管理者手動封禁" })
       });
       fetchBlacklists();
-      fetchOnlineUsers();
+      fetchOnline();
       fetchKeys();
       showToast(`🚫 封禁成功，已斷開 ${res.kicked_count} 個線上連線！`);
     } catch (err) {
