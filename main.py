@@ -19,7 +19,7 @@ import secrets
 import string
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 from typing import Optional, Dict, List
 
@@ -131,6 +131,10 @@ class CreateKeyRequest(BaseModel):
     username: str
     max_devices: int = 1
     expires_at: str  # ISO datetime string
+
+class ExtendKeyRequest(BaseModel):
+    days: Optional[int] = None
+    expires_at: Optional[str] = None
 
 class CreateApplicationRequest(BaseModel):
     name: str
@@ -808,6 +812,59 @@ async def disable_key(key_id: int):
 def enable_key(key_id: int):
     supabase.table("license_keys").update({"status": "active"}).eq("id", key_id).execute()
     return {"ok": True}
+
+@app.patch("/api/admin/keys/{key_id}/extend", dependencies=[Depends(require_admin)])
+async def extend_key(key_id: int, req: ExtendKeyRequest):
+    if not supabase:
+        raise HTTPException(status_code=500, detail="資料庫未連接")
+
+    res = supabase.table("license_keys").select("*").eq("id", key_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="找不到指定的卡密")
+
+    row = res.data[0]
+    now_utc = datetime.now(timezone.utc)
+
+    if req.expires_at:
+        try:
+            clean_str = req.expires_at.strip().replace("Z", "+00:00")
+            new_expiry = datetime.fromisoformat(clean_str)
+            if new_expiry.tzinfo is None:
+                new_expiry = new_expiry.replace(tzinfo=timezone.utc)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"到期時間格式無效：{e}")
+    elif req.days is not None:
+        try:
+            curr_expires = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+            base_time = max(curr_expires, now_utc)
+            new_expiry = base_time + timedelta(days=req.days)
+        except Exception:
+            new_expiry = now_utc + timedelta(days=req.days)
+    else:
+        raise HTTPException(status_code=400, detail="請提供延長天數 (days) 或新的到期時間 (expires_at)")
+
+    new_expiry_iso = new_expiry.isoformat()
+
+    # 自動將狀態重新設為 active (激活)，延長期限
+    supabase.table("license_keys").update({
+        "expires_at": new_expiry_iso,
+        "status": "active"
+    }).eq("id", key_id).execute()
+
+    log_event(
+        actor="admin",
+        event="KEY_EXTENDED",
+        detail=f"卡密 {row['license_key']} 已延長期限至 {new_expiry_iso}",
+        ip_address=""
+    )
+
+    return {
+        "ok": True,
+        "id": key_id,
+        "license_key": row["license_key"],
+        "expires_at": new_expiry_iso,
+        "status": "active"
+    }
 
 @app.patch("/api/admin/keys/{key_id}/reset-hwid", dependencies=[Depends(require_admin)])
 async def reset_hwid(key_id: int):

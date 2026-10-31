@@ -106,6 +106,43 @@
   .btn-amber { background: #f0b42933; color: var(--amber); border: 1px solid #f0b42955; }
   .btn-gray { background: #33333f; color: #c0c0d0; border: 1px solid #44445a; }
   .btn-red { background: #f1466833; color: var(--red); border: 1px solid #f1466855; }
+  .btn-green { background: #2ecc9a33; color: var(--green); border: 1px solid #2ecc9a55; }
+  .btn-green:hover { background: #2ecc9a55; color: #5eead4; }
+
+  /* ---------------- Modal Dialog ---------------- */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 16px;
+  }
+  .modal-content {
+    width: 100%;
+    max-width: 480px;
+    background: #111118;
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(46, 204, 154, 0.12);
+    animation: fadeInModal 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes fadeInModal {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 12px;
+  }
 
   /* ---------------- App shell & Header ---------------- */
   #app {
@@ -878,6 +915,67 @@
 
 <!-- Toast Notice -->
 <div id="toast" class="toast-notice"></div>
+
+<!-- 延長卡密期限彈窗 (Extend Key Modal) -->
+<div id="extend-modal" class="modal-overlay" style="display:none;" onclick="handleModalOverlayClick(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 style="margin:0; font-size:16px; display:flex; align-items:center; gap:8px;">
+        <span style="color:var(--green);">⏳</span> 延長卡密授權期限
+      </h3>
+      <button class="icon-btn" onclick="closeExtendModal()" style="font-size:18px;">✕</button>
+    </div>
+    
+    <div style="margin-top:16px;">
+      <div style="background:rgba(255,255,255,0.03); padding:12px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); margin-bottom:16px; font-size:13px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <span style="color:var(--text-dim);">卡密：</span>
+          <span id="extend-key-name" class="key-cell" style="font-weight:700;">-</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <span style="color:var(--text-dim);">綁定用戶：</span>
+          <span id="extend-user-name">-</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <span style="color:var(--text-dim);">目前狀態：</span>
+          <span id="extend-status-badge">-</span>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+          <span style="color:var(--text-dim);">原到期時間：</span>
+          <span id="extend-curr-expiry" style="color:var(--text); font-weight:600;">-</span>
+        </div>
+      </div>
+
+      <label style="display:block; margin-bottom:8px; font-weight:600; color:var(--text); font-size:13px;">
+        快捷延長天數：
+      </label>
+      <div class="expiry-quick" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px;">
+        <button type="button" class="btn btn-ghost" onclick="applyExtendDays(1)">+1天</button>
+        <button type="button" class="btn btn-ghost" onclick="applyExtendDays(3)">+3天</button>
+        <button type="button" class="btn btn-ghost" onclick="applyExtendDays(7)">+7天</button>
+        <button type="button" class="btn btn-ghost" onclick="applyExtendDays(30)">+30天</button>
+        <button type="button" class="btn btn-ghost" onclick="applyExtendDays(90)">+90天</button>
+        <button type="button" class="btn btn-ghost" onclick="applyExtendDays(365)">+1年</button>
+        <button type="button" class="btn btn-ghost" onclick="applyExtendDays(3650)">永久 (10年)</button>
+      </div>
+
+      <label style="display:block; margin-bottom:6px; font-weight:600; color:var(--text); font-size:13px;">
+        延長後的新到期時間：
+      </label>
+      <input type="datetime-local" id="extend-new-expiry" style="width:100%; box-sizing:border-box; margin-bottom:8px;" />
+      
+      <p id="extend-calc-hint" style="font-size:12px; color:var(--cyan); margin:6px 0 16px 0; line-height:1.4;">
+        💡 若卡密已過期，延長天數自動自「當前時間」起算；若尚未過期，則自「原到期日」順延。
+      </p>
+      <p id="extend-error" class="error-text" style="color:var(--red); font-size:13px; margin:0 0 12px 0;"></p>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px; border-top:1px solid rgba(255,255,255,0.08); padding-top:14px;">
+      <button class="btn btn-ghost" onclick="closeExtendModal()">取消</button>
+      <button class="btn btn-gradient" id="btn-confirm-extend" onclick="submitExtendKey()">確認延長並啟用</button>
+    </div>
+  </div>
+</div>
 
 <script>
   let adminToken = "";
@@ -1814,7 +1912,10 @@
           <td>${escapeHtml(k.username)}</td>
           <td><span class="hwid-tag">${k.hwid ? '已綁定 (' + k.max_devices + '台)' : '未綁定'}</span></td>
           <td><span class="online-dot ${isOnline ? 'on' : 'off'}"><span class="dot"></span>${isOnline ? '在線' : '離線'}</span></td>
-          <td>${new Date(k.expires_at).toLocaleString("zh-TW")}</td>
+          <td style="${isExpired ? 'color:var(--red); font-weight:600;' : ''}">
+            ${new Date(k.expires_at).toLocaleString("zh-TW")}
+            ${isExpired ? '<span style="display:inline-block; margin-left:4px; font-size:11px; background:#f1466822; color:var(--red); padding:1px 5px; border-radius:4px; font-weight:600;">已過期</span>' : ''}
+          </td>
           <td><span class="badge ${badgeClass}">${statusText}</span></td>
           <td>
             <div class="action-group">
@@ -1822,6 +1923,7 @@
                 ? `<button class="btn btn-sm btn-amber" onclick="disableKey(${k.id})">停用</button>`
                 : `<button class="btn btn-sm btn-blue" onclick="enableKey(${k.id})">啟用</button>`
               }
+              <button class="btn btn-sm btn-green" onclick="openExtendModal(${k.id})">${isExpired ? '⚡ 延長期限' : '延長'}</button>
               <button class="btn btn-sm btn-gray" onclick="resetHwid(${k.id})">重設HWID</button>
               <button class="btn btn-sm btn-red" onclick="deleteKey(${k.id})">刪除</button>
             </div>
@@ -1876,6 +1978,108 @@
   async function enableKey(id) { await apiFetch(`/api/admin/keys/${id}/enable`, { method: "PATCH" }); fetchKeys(); }
   async function resetHwid(id) { if (confirm("重設裝置綁定？")) { await apiFetch(`/api/admin/keys/${id}/reset-hwid`, { method: "PATCH" }); fetchKeys(); } }
   async function deleteKey(id) { if (confirm("刪除此卡密？")) { await apiFetch(`/api/admin/keys/${id}`, { method: "DELETE" }); fetchKeys(); } }
+
+  // --- 延長卡密期限功能 ---
+  let currentExtendingKey = null;
+
+  function openExtendModal(keyId) {
+    const k = allKeys.find(item => item.id === keyId);
+    if (!k) return;
+    currentExtendingKey = k;
+
+    document.getElementById("extend-key-name").textContent = k.license_key;
+    document.getElementById("extend-user-name").textContent = k.username;
+
+    const isExpired = new Date(k.expires_at) < new Date();
+    const statusBadge = document.getElementById("extend-status-badge");
+    if (k.status !== "active") {
+      statusBadge.innerHTML = `<span class="badge badge-disabled">已停用</span>`;
+    } else if (isExpired) {
+      statusBadge.innerHTML = `<span class="badge badge-disabled">已過期</span>`;
+    } else {
+      statusBadge.innerHTML = `<span class="badge badge-active">生效中</span>`;
+    }
+
+    const currDate = new Date(k.expires_at);
+    document.getElementById("extend-curr-expiry").textContent = currDate.toLocaleString("zh-TW");
+    document.getElementById("extend-error").textContent = "";
+
+    // 預設填入延長 30 天
+    applyExtendDays(30);
+
+    const modal = document.getElementById("extend-modal");
+    modal.style.display = "flex";
+  }
+
+  function closeExtendModal() {
+    const modal = document.getElementById("extend-modal");
+    modal.style.display = "none";
+    currentExtendingKey = null;
+  }
+
+  function handleModalOverlayClick(e) {
+    if (e.target.id === "extend-modal") {
+      closeExtendModal();
+    }
+  }
+
+  function applyExtendDays(days) {
+    if (!currentExtendingKey) return;
+    const now = new Date();
+    const curr = new Date(currentExtendingKey.expires_at);
+    const isExpired = curr < now;
+    // 若已過期，從現在開始算；若尚未過期，從原到期日往後累加
+    const base = isExpired ? new Date(now) : new Date(curr);
+    base.setDate(base.getDate() + days);
+
+    const pad = n => String(n).padStart(2, "0");
+    const localIso = `${base.getFullYear()}-${pad(base.getMonth()+1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`;
+    document.getElementById("extend-new-expiry").value = localIso;
+
+    const hint = document.getElementById("extend-calc-hint");
+    if (isExpired) {
+      hint.innerHTML = `💡 卡密已過期，自 <b>當前時間</b> 往後延長 <b>${days} 天</b> (至 ${base.toLocaleString("zh-TW")})`;
+    } else {
+      hint.innerHTML = `💡 卡密尚未過期，自 <b>原到期日</b> 順延 <b>${days} 天</b> (至 ${base.toLocaleString("zh-TW")})`;
+    }
+  }
+
+  async function submitExtendKey() {
+    if (!currentExtendingKey) return;
+    const expiryVal = document.getElementById("extend-new-expiry").value;
+    if (!expiryVal) {
+      document.getElementById("extend-error").textContent = "請選擇或輸入新的到期時間";
+      return;
+    }
+
+    const targetDate = new Date(expiryVal);
+    if (isNaN(targetDate.getTime())) {
+      document.getElementById("extend-error").textContent = "無效的日期時間格式";
+      return;
+    }
+
+    const btn = document.getElementById("btn-confirm-extend");
+    btn.disabled = true;
+    btn.textContent = "延長處理中...";
+    document.getElementById("extend-error").textContent = "";
+
+    try {
+      await apiFetch(`/api/admin/keys/${currentExtendingKey.id}/extend`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          expires_at: targetDate.toISOString()
+        })
+      });
+      closeExtendModal();
+      showToast(`✅ 卡密 [${currentExtendingKey.license_key}] 已成功延長期限！`);
+      await fetchKeys();
+    } catch (err) {
+      document.getElementById("extend-error").textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "確認延長並啟用";
+    }
+  }
 
   // --- Blacklists System ---
   async function fetchBlacklists() {
@@ -2306,6 +2510,7 @@
 
   setupButtonListeners();
   document.getElementById("admin-token-input").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeExtendModal(); });
   window.addEventListener("resize", initLightBeam);
   setInterval(() => { if (adminToken) fetchKeys(); }, 8000);
 
