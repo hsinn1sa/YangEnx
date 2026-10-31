@@ -101,7 +101,7 @@
   .btn-gradient:hover { opacity: 0.9; transform: translateY(-1px); }
   .btn-ghost { background: #1a1a24; color: var(--text-dim); }
   .btn-ghost:hover { color: var(--text); }
-  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 5px; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 5px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; }
   .btn-blue { background: #2563eb33; color: #60a5fa; border: 1px solid #2563eb55; }
   .btn-amber { background: #f0b42933; color: var(--amber); border: 1px solid #f0b42955; }
   .btn-gray { background: #33333f; color: #c0c0d0; border: 1px solid #44445a; }
@@ -559,27 +559,30 @@
     font-size: 12px;
     padding: 10px 12px;
     border-bottom: 1px solid var(--panel-border);
+    white-space: nowrap;
   }
   tbody td {
-    padding: 14px 12px;
+    padding: 12px 12px;
     border-bottom: 1px solid #1a1a24;
     vertical-align: middle;
+    white-space: nowrap;
   }
   tbody tr:hover { background: #14141d; }
-  .key-cell { color: var(--purple); font-weight: 600; font-family: monospace; }
+  .key-cell { color: var(--purple); font-weight: 600; font-family: monospace; white-space: nowrap; }
   .badge {
     display: inline-block;
     padding: 3px 10px;
     border-radius: 20px;
     font-size: 12px;
     font-weight: 600;
+    white-space: nowrap;
   }
   .badge-active { background: #2ecc9a22; color: var(--green); }
   .badge-disabled { background: #f1466822; color: var(--red); }
   .badge-expired { background: #f1466822; color: var(--red); }
-  .action-group { display: flex; gap: 6px; flex-wrap: wrap; }
-  .empty-row td { text-align: center; color: var(--text-dim); padding: 30px; }
-  .hwid-tag { font-size: 11px; color: var(--text-dim); }
+  .action-group { display: flex; gap: 6px; flex-wrap: nowrap; align-items: center; white-space: nowrap; }
+  .empty-row td { text-align: center; color: var(--text-dim); padding: 30px; white-space: normal; }
+  .hwid-tag { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
 
   /* ---------------- Applications ---------------- */
   .app-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
@@ -1907,7 +1910,7 @@
       return `
         <tr>
           <td>${k.id}</td>
-          <td class="key-cell">${k.license_key} <button class="icon-btn" onclick="copyToClipboard('${k.license_key}')">📋</button></td>
+          <td class="key-cell"><span style="display:inline-flex; align-items:center; gap:4px;">${k.license_key} <button class="icon-btn" onclick="copyToClipboard('${k.license_key}')">📋</button></span></td>
           <td>${escapeHtml(appName)}</td>
           <td>${escapeHtml(k.username)}</td>
           <td><span class="hwid-tag">${k.hwid ? '已綁定 (' + k.max_devices + '台)' : '未綁定'}</span></td>
@@ -1923,7 +1926,7 @@
                 ? `<button class="btn btn-sm btn-amber" onclick="disableKey(${k.id})">停用</button>`
                 : `<button class="btn btn-sm btn-blue" onclick="enableKey(${k.id})">啟用</button>`
               }
-              <button class="btn btn-sm btn-green" onclick="openExtendModal(${k.id})">${isExpired ? '⚡ 延長期限' : '延長'}</button>
+              <button class="btn btn-sm btn-green" onclick="openExtendModal(${k.id})">${isExpired ? '⚡ 延長' : '延長'}</button>
               <button class="btn btn-sm btn-gray" onclick="resetHwid(${k.id})">重設HWID</button>
               <button class="btn btn-sm btn-red" onclick="deleteKey(${k.id})">刪除</button>
             </div>
