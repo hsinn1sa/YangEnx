@@ -705,10 +705,47 @@ def check_blacklist(app_id: str, hwid: str, client_ip: str) -> Tuple[bool, str]:
             return True, f"此 IP 位址已封禁 ({reason})"
     return False, ""
 
+def touch_connection(license_key: str, app_id: str, username: str, hwid: str, ip: str):
+    """更新（而不是覆蓋）線上連線資料。
+
+    [修正] 原本 verify / heartbeat 都是直接換掉整個 dict，會把 SSE 連線建的
+    "sse": True 和 WebSocket 的 "ws" 弄丟；一掉 flags 之後
+    clean_active_connections() 就會把它當成「沒有長連線」的使用者，
+    60 秒後從線上名單消失 → 後台線上狀態一下有、一下沒有。
+    """
+    entry = active_connections.get(license_key)
+    if entry is None:
+        entry = {
+            "connected_at": datetime.now(timezone.utc).isoformat(),
+        }
+    entry.update({
+        "app_id": app_id,
+        "username": username,
+        "hwid": hwid,
+        "ip": ip,
+        "last_seen": time.time(),
+    })
+    active_connections[license_key] = entry
+
+
 def clean_active_connections():
     now_ts = time.time()
     for lk, entry in list(active_connections.items()):
-        if "ws" not in entry and (now_ts - entry.get("last_seen", 0) > 60):
+        # 真的存在 WebSocket 連線 → 交給連線本身管理
+        if entry.get("ws"):
+            continue
+
+        # SSE 連線：只要串流還在就一直算在線（心跳可能是 5 分鐘一次，不能靠 last_seen）
+        if entry.get("sse"):
+            if _streams.get(lk):
+                continue
+            # 串流已經不存在（例如被踢掉後沒清乾淨）→ 等 last_seen 過期再清
+            if now_ts - entry.get("last_seen", 0) > 60:
+                active_connections.pop(lk, None)
+            continue
+
+        # 只有心跳（沒有長連線）的使用者：60 秒沒心跳就當離線
+        if now_ts - entry.get("last_seen", 0) > 60:
             active_connections.pop(lk, None)
 
 def normalize_version(v: Optional[str]) -> str:
@@ -951,15 +988,8 @@ def verify(req: VerifyRequest, request: Request, _: None = Depends(check_rate_li
     )
     dynamic_payload = settings.get("dynamic_payload", "")
 
-    # 註冊即時在線連線監控
-    active_connections[req.license_key] = {
-        "app_id": app_id,
-        "username": row["username"],
-        "hwid": req.hwid,
-        "ip": client_ip,
-        "connected_at": datetime.now(timezone.utc).isoformat(),
-        "last_seen": time.time()
-    }
+    # 註冊即時在線連線監控（merge，不要把 SSE / WS 的旗標蓋掉）
+    touch_connection(req.license_key, app_id, row["username"], req.hwid, client_ip)
 
     log_event(row["username"], "VERIFY_SUCCESS", "認證成功登入主程式", req.hwid, client_ip)
     return VerifyResponse(
@@ -1358,15 +1388,8 @@ def heartbeat(req: HeartbeatRequest, request: Request):
     except Exception as e:
         print(f"[heartbeat last_seen warning] {e}")
 
-    # 更新在線連線維護狀態
-    active_connections[req.license_key] = {
-        "app_id": app_id,
-        "username": row["username"],
-        "hwid": req.hwid,
-        "ip": client_ip,
-        "connected_at": active_connections.get(req.license_key, {}).get("connected_at") or datetime.now(timezone.utc).isoformat(),
-        "last_seen": time.time()
-    }
+    # 更新在線連線維護狀態（merge：保留 sse / ws 旗標）
+    touch_connection(req.license_key, app_id, row["username"], req.hwid, client_ip)
 
     server_ts, server_ms, sig, sig_v2, lease_ms = generate_server_verification(
         req.app_secret, req.license_key, req.hwid, req.nonce or ""
@@ -1578,6 +1601,9 @@ def get_online():
             "hwid": entry.get("hwid"),
             "ip": entry.get("ip"),
             "connected_at": entry["connected_at"],
+            # 方便除錯：看得出這個人是 SSE 長連線還是只有心跳
+            "sse": bool(entry.get("sse")),
+            "ws": bool(entry.get("ws")),
         }
         for license_key, entry in active_connections.items()
     ]
