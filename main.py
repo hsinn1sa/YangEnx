@@ -566,7 +566,8 @@ def get_app_settings(app_id: str) -> dict:
             settings["maintenance_message"] = row.get("maintenance_message") or DEFAULT_APP_SETTINGS["maintenance_message"]
             settings["latest_version"] = row.get("latest_version") or DEFAULT_APP_SETTINGS["latest_version"]
             if row.get("update_changelog"):
-                settings["update_changelog"] = row["update_changelog"]
+                # [v2] 舊資料可能是 UTF-8 被當成 Latin-1 存進去的亂碼，讀取時順手修
+                settings["update_changelog"] = _repair_mojibake(row["update_changelog"])
             if row.get("dynamic_payload"):
                 settings["dynamic_payload"] = row["dynamic_payload"]
     except Exception as e:
@@ -577,6 +578,7 @@ def get_app_settings(app_id: str) -> dict:
 def set_app_settings(app_id: str, maintenance_mode: bool, maintenance_message: str, latest_version: str, update_changelog: str = "", dynamic_payload: str = "") -> Optional[str]:
     # [v2] 寫入後立即失效快取，避免後台改了設定卻要等 TTL 才生效
     settings_cache.invalidate(f"app_settings:{app_id}")
+    update_changelog = _repair_mojibake(update_changelog)   # [v2] 統一修正亂碼
     if not supabase:
         return "Supabase client not initialized"
     try:
@@ -1753,6 +1755,32 @@ def delete_blacklist(blacklist_id: int):
 # ------------------------------------------------------------------
 BUCKET_NAME = "client-files"
 
+# [v2] 修正「UTF-8 被當成 Latin-1」造成的亂碼（multipart 表單常見）。
+#      正常中文無法 encode 成 latin-1，所以這個函式對正確資料是無害的（原樣返回）。
+def _repair_mojibake(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    try:
+        fixed = value.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return value
+    return fixed if fixed != value else value
+
+
+def _storage_file_size(app_id: str, filename: str) -> int:
+    """回傳 Supabase Storage 裡這個檔案的大小；找不到或失敗回 0。"""
+    if not supabase:
+        return 0
+    try:
+        for item in supabase.storage.from_(BUCKET_NAME).list(app_id) or []:
+            if item.get("name") == filename:
+                meta = item.get("metadata") or {}
+                return int(meta.get("size") or 0)
+    except Exception as e:
+        print(f"[Storage List Warning] {e}")
+    return 0
+
+
 def ensure_bucket_exists():
     if not supabase:
         return
@@ -1774,9 +1802,8 @@ async def upload_client_file(
     get_application_or_404(app_id)
     settings = get_app_settings(app_id)
     latest_version = version.strip() if version and version.strip() else settings["latest_version"]
-    update_changelog = changelog.strip() if (changelog is not None and changelog.strip()) else settings.get("update_changelog", "")
-
-    set_app_settings(app_id, settings["maintenance_mode"], settings["maintenance_message"], latest_version, update_changelog, settings.get("dynamic_payload", ""))
+    incoming_changelog = _repair_mojibake(changelog).strip() if changelog else ""
+    update_changelog = incoming_changelog or settings.get("update_changelog", "")
 
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
     file_size = 0
@@ -1784,6 +1811,9 @@ async def upload_client_file(
         while chunk := await file.read(65536):
             f.write(chunk)
             file_size += len(chunk)
+
+    if file_size == 0:
+        raise HTTPException(status_code=400, detail="檔案是空的，請重新選擇 Client.dll")
 
     ensure_bucket_exists()
     try:
@@ -1794,14 +1824,31 @@ async def upload_client_file(
                 file_options={"upsert": "true", "content-type": "application/octet-stream"}
             )
     except Exception as e:
-        print(f"[Storage Upload Warning] {e}")
+        # [v2] 不再默默吞掉。Render 的 uploads/ 是暫存磁碟，重啟就會消失，
+        #      所以 Storage 失敗一定要讓管理者看到，而不是顯示「上傳成功」。
+        raise HTTPException(
+            status_code=500,
+            detail=f"檔案已寫入伺服器暫存，但上傳 Supabase Storage 失敗（重新部署後會消失）：{e}",
+        )
+
+    if _storage_file_size(app_id, "Client.dll") <= 0:
+        raise HTTPException(
+            status_code=500,
+            detail="上傳後在 Supabase Storage 找不到 Client.dll。請確認 bucket 權限，或改用 Supabase 後台直接上傳。",
+        )
+
+    # [v2] 確認檔案真的進 Storage 之後，才更新版本號與說明
+    set_app_settings(app_id, settings["maintenance_mode"], settings["maintenance_message"], latest_version, update_changelog, settings.get("dynamic_payload", ""))
 
     return {
         "ok": True,
         "filename": file.filename or "Client.dll",
         "size": file_size,
         "version": latest_version,
-        "changelog": update_changelog
+        "changelog": update_changelog,
+        "storage": True,
+        "source": "storage",
+        "message": "已上傳並確認存到 Supabase Storage（重新部署不會消失）",
     }
 
 @app.delete("/api/admin/apps/{app_id}/delete-client", dependencies=[Depends(require_admin)])
@@ -1826,22 +1873,19 @@ def get_client_file_info(app_id: str):
     get_application_or_404(app_id)
     settings = get_app_settings(app_id)
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_Client.dll")
-    size = os.path.getsize(local_path) if os.path.exists(local_path) else 0
-
-    if size == 0 and supabase:
-        try:
-            res = supabase.storage.from_(BUCKET_NAME).list(app_id)
-            for item in res or []:
-                if item.get("name") == "Client.dll":
-                    size = item.get("metadata", {}).get("size", 1024) or 1024
-                    break
-        except Exception as e:
-            print(f"[Supabase Storage List Warning] {e}")
+    local_size = os.path.getsize(local_path) if os.path.exists(local_path) else 0
+    storage_size = _storage_file_size(app_id, "Client.dll")
+    size = local_size or storage_size
+    source = "local" if local_size > 0 else ("storage" if storage_size > 0 else "none")
 
     return {
         "has_file": size > 0,
         "filename": "Client.dll" if size > 0 else None,
         "size": size,
+        "source": source,             # local = 只在暫存磁碟（重啟會消失）；storage = 已進 Supabase
+        "local_size": local_size,
+        "storage_size": storage_size,
+        "in_storage": storage_size > 0,
         "version": settings["latest_version"],
         "changelog": settings.get("update_changelog", ""),
         "dynamic_payload": settings.get("dynamic_payload", "")
@@ -1940,7 +1984,7 @@ def get_internal_settings(app_id: str) -> dict:
             if res.data:
                 row = res.data[0]
                 settings["latest_version"] = row.get("latest_version") or DEFAULT_INTERNAL_SETTINGS["latest_version"]
-                settings["update_changelog"] = row.get("update_changelog", "")
+                settings["update_changelog"] = _repair_mojibake(row.get("update_changelog", ""))
                 settings["stopped"] = bool(row.get("stopped", False))
                 settings["stop_message"] = row.get("stop_message") or DEFAULT_INTERNAL_SETTINGS["stop_message"]
                 internal_cache.set(f"internal:{app_id}", dict(settings))
@@ -1964,6 +2008,7 @@ def get_internal_settings(app_id: str) -> dict:
 
 def set_internal_settings(app_id: str, latest_version: str, update_changelog: str = "", stopped: Optional[bool] = None, stop_message: Optional[str] = None) -> Optional[str]:
     internal_cache.invalidate(f"internal:{app_id}")   # [v2] 立即生效
+    update_changelog = _repair_mojibake(update_changelog)
     current = get_internal_settings(app_id)
     new_stopped = current["stopped"] if stopped is None else bool(stopped)
     new_stop_message = current["stop_message"] if stop_message is None else stop_message.strip()
@@ -2004,15 +2049,18 @@ async def upload_internal_file(
     get_application_or_404(app_id)
     settings = get_internal_settings(app_id)
     latest_version = version.strip() if version and version.strip() else settings["latest_version"]
-    update_changelog = changelog.strip() if (changelog is not None and changelog.strip()) else settings.get("update_changelog", "")
+    incoming_changelog = _repair_mojibake(changelog).strip() if changelog else ""
+    update_changelog = incoming_changelog or settings.get("update_changelog", "")
 
-    set_internal_settings(app_id, latest_version, update_changelog)
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_YangEnx_Internal.dll")
     file_size = 0
     with open(local_path, "wb") as f:
         while chunk := await file.read(65536):
             f.write(chunk)
             file_size += len(chunk)
+
+    if file_size == 0:
+        raise HTTPException(status_code=400, detail="檔案是空的，請重新選擇 YangEnx Internal.dll")
 
     ensure_bucket_exists()
     try:
@@ -2023,14 +2071,28 @@ async def upload_internal_file(
                 file_options={"upsert": "true", "content-type": "application/octet-stream"}
             )
     except Exception as e:
-        print(f"[Storage Upload Warning] {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"檔案已寫入伺服器暫存，但上傳 Supabase Storage 失敗（重新部署後會消失）：{e}",
+        )
+
+    if _storage_file_size(app_id, "YangEnx Internal.dll") <= 0:
+        raise HTTPException(
+            status_code=500,
+            detail="上傳後在 Supabase Storage 找不到 YangEnx Internal.dll。請確認 bucket 權限，或改用 Supabase 後台直接上傳。",
+        )
+
+    set_internal_settings(app_id, latest_version, update_changelog)
 
     return {
         "ok": True,
         "filename": file.filename or "YangEnx Internal.dll",
         "size": file_size,
         "version": latest_version,
-        "changelog": update_changelog
+        "changelog": update_changelog,
+        "storage": True,
+        "source": "storage",
+        "message": "已上傳並確認存到 Supabase Storage（重新部署不會消失）",
     }
 
 @app.put("/api/admin/apps/{app_id}/internal-settings", dependencies=[Depends(require_admin)])
@@ -2071,22 +2133,19 @@ def get_internal_file_info(app_id: str):
     get_application_or_404(app_id)
     settings = get_internal_settings(app_id)
     local_path = os.path.join(UPLOADS_DIR, f"{app_id}_YangEnx_Internal.dll")
-    size = os.path.getsize(local_path) if os.path.exists(local_path) else 0
-
-    if size == 0 and supabase:
-        try:
-            res = supabase.storage.from_(BUCKET_NAME).list(app_id)
-            for item in res or []:
-                if item.get("name") == "YangEnx Internal.dll":
-                    size = item.get("metadata", {}).get("size", 1024) or 1024
-                    break
-        except Exception as e:
-            print(f"[Supabase Storage List Warning] {e}")
+    local_size = os.path.getsize(local_path) if os.path.exists(local_path) else 0
+    storage_size = _storage_file_size(app_id, "YangEnx Internal.dll")
+    size = local_size or storage_size
+    source = "local" if local_size > 0 else ("storage" if storage_size > 0 else "none")
 
     return {
         "has_file": size > 0,
         "filename": "YangEnx Internal.dll" if size > 0 else None,
         "size": size,
+        "source": source,
+        "local_size": local_size,
+        "storage_size": storage_size,
+        "in_storage": storage_size > 0,
         "version": settings["latest_version"],
         "changelog": settings.get("update_changelog", ""),
         "stopped": settings.get("stopped", False),

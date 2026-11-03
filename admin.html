@@ -2234,7 +2234,8 @@
     if (!appId || !infoEl) return;
     try {      const info = await apiFetch(`/api/admin/apps/${appId}/client-info`);
       if (info.has_file) {
-        infoEl.innerHTML = `檔案: <b>Client.dll</b> (${(info.size / 1024 / 1024).toFixed(2)} MB) | 最新版本: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b> <button class="btn btn-sm btn-red" style="margin-left:8px;" onclick="deleteClientFile()">刪除 Client.dll</button>`;
+        const warn = info.in_storage ? '' : '<div style="color:var(--amber); margin-top:6px;">⚠ 這個檔案目前只存在伺服器暫存磁碟，重新部署就會消失，請重新上傳一次</div>';
+        infoEl.innerHTML = `檔案: <b>Client.dll</b> (${(info.size / 1024 / 1024).toFixed(2)} MB) | 最新版本: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b> <button class="btn btn-sm btn-red" style="margin-left:8px;" onclick="deleteClientFile()">刪除 Client.dll</button>${warn}`;
       } else {
         infoEl.innerHTML = `<span style="color:var(--amber);">尚未上傳 Client.dll 檔案 (目前版本號: ${escapeHtml(info.version)})</span>`;
       }
@@ -2331,7 +2332,8 @@
       updateInternalStopStatusTag(info.stopped || false);
 
       if (info.has_file) {
-        infoEl.innerHTML = `檔案: <b>YangEnx Internal.dll</b> (${(info.size / 1024 / 1024).toFixed(2)} MB) | 版本: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b> <button class="btn btn-sm btn-red" style="margin-left:8px;" onclick="deleteInternalFile()">刪除 Internal.dll</button>`;
+        const warn = info.in_storage ? '' : '<div style="color:var(--amber); margin-top:6px;">⚠ 這個檔案目前只存在伺服器暫存磁碟，重新部署就會消失，請重新上傳一次</div>';
+        infoEl.innerHTML = `檔案: <b>YangEnx Internal.dll</b> (${(info.size / 1024 / 1024).toFixed(2)} MB) | 版本: <b style="color:var(--cyan);">${escapeHtml(info.version)}</b> <button class="btn btn-sm btn-red" style="margin-left:8px;" onclick="deleteInternalFile()">刪除 Internal.dll</button>${warn}`;
       } else {
         infoEl.innerHTML = `<span style="color:var(--amber);">尚未上傳 YangEnx Internal.dll 檔案</span>`;
       }
