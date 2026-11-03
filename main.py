@@ -1,15 +1,22 @@
 """
-授權系統後端 (FastAPI + Supabase + WebSockets)
+授權系統後端 (FastAPI + Supabase + WebSockets)  ── v2 強化版
 包含：
   - 核心驗證 (Verify / Heartbeat / WebSocket)
   - HWID / IP 黑名單系統 (Blacklist System)
   - 多裝置 HWID 動態綁定 (max_devices)
-  - 伺服器時間校驗與 HMAC 簽名 (Anti-Clock Manipulation)
+  - 伺服器時間校驗與 HMAC 簽名 + Nonce (防重放 / 反時鐘篡改)
+  - 離線租約 Lease (Offline Grace) ── 解決 Render 免費版冷啟動/網路波動造成的誤登出
   - 動態記憶體 Key / 參數注入 (Dynamic Memory Injection)
   - 即時廣播公告彈窗推播 (Real-time Broadcast Popup)
-  - API 速率限制 (Rate Limiting)
+  - API 速率限制 (Rate Limiting, thread-safe)
+  - 後台管理安全強化 (常數時間比對 / 失敗鎖定 / 多組 Token 輪替)
+  - 設定快取 (Settings/Blacklist Cache) 大幅降低 Supabase 往返延遲
+  - 安全回應標頭 (Security Headers)
+
+v2 相對 v1 的差異都標記為 [v2]，方便你用 diff 比對。
 """
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -17,17 +24,20 @@ import json
 import os
 import secrets
 import string
+import threading
 import time
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
-from collections import defaultdict
-from typing import Optional, Dict, List
+from collections import defaultdict, deque
+from typing import Optional, Dict, List, Tuple
 
 from fastapi import (
     FastAPI, HTTPException, Header, Depends, WebSocket,
     WebSocketDisconnect, Query, UploadFile, File, Form, Response, Request
 )
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import FileResponse, RedirectResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from supabase import create_client, Client
 
@@ -41,61 +51,314 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_KEY") or ""
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 
+# [v2] 可同時放多組 Token（用逗號分隔）→ 換 Token 時可以零停機：先新增新 Token，之後再移除舊的。
+ADMIN_TOKENS: List[str] = [t.strip() for t in ADMIN_TOKEN.split(",") if t.strip()]
+
+# [v2] 離線租約秒數：客戶端在完全連不上伺服器時，仍可繼續使用到租約到期為止。
+#      這才是「Render 免費版偶發斷線」的正解；預設 30 分鐘，可依商業模式調整（建議 15~60 分鐘）。
+LEASE_TTL_SECONDS = int(os.environ.get("LEASE_TTL_SECONDS", "1800"))
+
+# [v2] last_seen_at 最短寫入間隔（秒）。v1 每次心跳都 update，等於每 10 秒對 DB 寫一次。
+LAST_SEEN_WRITE_INTERVAL = int(os.environ.get("LAST_SEEN_WRITE_INTERVAL", "60"))
+
+# [v2] 快取秒數：把 app / app_settings / internal_settings / blacklist 放在記憶體內，
+#      心跳只需要 1 次 license_keys 查詢（原本要 5~6 次），大幅降低延遲與 Supabase 用量。
+APP_CACHE_TTL = float(os.environ.get("APP_CACHE_TTL", "60"))
+SETTINGS_CACHE_TTL = float(os.environ.get("SETTINGS_CACHE_TTL", "20"))
+BLACKLIST_CACHE_TTL = float(os.environ.get("BLACKLIST_CACHE_TTL", "20"))
+
+# [v2] 正式環境預設關閉 /docs 與 /openapi.json（避免攻擊者直接看到完整 API 結構）。
+ENABLE_DOCS = os.environ.get("ENABLE_DOCS", "0").strip().lower() in ("1", "true", "yes")
+
+# [v2] 只有 1 個 worker 時，記憶體快取與 active_connections 才是一致的。
+#      Render 免費方案就是 1 worker；若未來要開多 worker，請改用 Redis。
+WORKER_HINT = os.environ.get("WEB_CONCURRENCY", "1")
+
+# [v2] 是否信任 CF-Connecting-IP / X-Forwarded-For（Render 前面有 Cloudflare，正常要開）。
+TRUST_PROXY_HEADERS = os.environ.get("TRUST_PROXY_HEADERS", "1").strip().lower() in ("1", "true", "yes")
+
+# [v2] 下載 DLL 是否強制要求「有效卡密 + 已綁定 HWID」。
+#      v1 只要知道 app_secret 就能下載（等於任何人都能拿走你的 DLL），強烈建議設 1。
+REQUIRE_LICENSE_FOR_DOWNLOAD = os.environ.get("REQUIRE_LICENSE_FOR_DOWNLOAD", "0").strip().lower() in ("1", "true", "yes")
+
 supabase: Optional[Client] = create_client(SUPABASE_URL, SUPABASE_KEY) if (SUPABASE_URL and SUPABASE_KEY) else None
 
-app = FastAPI(title="YangEnx License System Pro", version="2.0.0")
+app = FastAPI(
+    title="YangEnx License System Pro",
+    version="2.1.0",
+    # [v2] 正式環境不公開 API 文件；本機開發可設 ENABLE_DOCS=1
+    docs_url="/docs" if ENABLE_DOCS else None,
+    redoc_url=None,
+    openapi_url="/openapi.json" if ENABLE_DOCS else None,
+)
+
 
 # ------------------------------------------------------------------
-# API 速率限制 (Simple Sliding Window Rate Limiter)
+# [v2] 安全回應標頭 (Security Headers)
 # ------------------------------------------------------------------
-ip_request_timestamps: Dict[str, List[float]] = defaultdict(list)
-RATE_LIMIT_MAX = 30     # 每分鐘最多 30 次驗證請求
-RATE_LIMIT_WINDOW = 60  # 秒
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"                 # 防 clickjacking（後台不能被 iframe）
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    if request.url.path.startswith("/api/"):
+        # API 回應一律不快取，避免中間層/瀏覽器拿到舊的授權結果
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.on_event("startup")
+def _startup_warnings():
+    # [v2] 設定缺漏時在日誌中直接警告，避免「以為有保護其實沒有」
+    if not ADMIN_TOKENS:
+        print("[SECURITY] ADMIN_TOKEN 未設定 → 後台 API 將全部回 401（這是安全的預設值）")
+    if not supabase:
+        print("[SECURITY] Supabase 未初始化 → 驗證功能無法使用")
+    if WORKER_HINT not in ("", "1"):
+        print(f"[WARN] WEB_CONCURRENCY={WORKER_HINT}：本版快取與 active_connections 為單程序記憶體，"
+              f"多 worker 會導致踢人/公告只送到其中一個程序，請改用 Redis 或維持 1 worker。")
+
+# ------------------------------------------------------------------
+# API 速率限制 (Sliding Window Rate Limiter)  ── [v2] thread-safe 版本
+# ------------------------------------------------------------------
+# 為什麼要改：
+#   1) 原本的 list 重建不是原子操作，FastAPI 同步端點跑在 threadpool，會有 race。
+#   2) 只有 /api/verify 有限流，/api/heartbeat 完全沒有 → 被拿來打 DB 的破口。
+#   3) 回應沒有 Retry-After，客戶端無法做正確退避。
+class SlidingWindowLimiter:
+    """固定窗口內的滑動視窗限流器（單程序記憶體版，足夠 1 worker 使用）。"""
+
+    def __init__(self, max_events: int, window_seconds: float, name: str = ""):
+        self.max_events = max_events
+        self.window = window_seconds
+        self.name = name
+        self._hits: Dict[str, deque] = {}
+        self._lock = threading.Lock()
+        self._last_gc = time.time()
+
+    def allow(self, key: str) -> Tuple[bool, int]:
+        """回傳 (是否放行, 建議等待秒數)。"""
+        now = time.time()
+        with self._lock:
+            q = self._hits.get(key)
+            if q is None:
+                q = deque()
+                self._hits[key] = q
+            while q and now - q[0] > self.window:
+                q.popleft()
+            if len(q) >= self.max_events:
+                return False, max(1, int(self.window - (now - q[0])) + 1)
+            q.append(now)
+            self._gc_locked(now)
+            return True, 0
+
+    def _gc_locked(self, now: float):
+        # 每 60 秒清一次，避免字典無限長大
+        if now - self._last_gc < 60:
+            return
+        self._last_gc = now
+        dead = [k for k, v in self._hits.items() if not v or now - v[-1] > self.window]
+        for k in dead:
+            self._hits.pop(k, None)
+        # 極端情況（有人用隨機卡密灌爆）硬性上限，避免記憶體被吃光
+        if len(self._hits) > 50000:
+            self._hits.clear()
+
+
+# [v2] 可用環境變數調整，不用改程式
+VERIFY_RATE_LIMIT = int(os.environ.get("VERIFY_RATE_LIMIT", "30"))        # 每 IP 每分鐘登入次數
+HEARTBEAT_RATE_LIMIT = int(os.environ.get("HEARTBEAT_RATE_LIMIT", "120"))  # 每張卡密每分鐘心跳次數
+ADMIN_RATE_LIMIT = int(os.environ.get("ADMIN_RATE_LIMIT", "240"))          # 每 IP 每分鐘後台請求
+
+verify_limiter = SlidingWindowLimiter(VERIFY_RATE_LIMIT, 60, "verify")
+heartbeat_limiter = SlidingWindowLimiter(HEARTBEAT_RATE_LIMIT, 60, "heartbeat")
+# 每 IP 的心跳上限（比每卡密寬），防止有人用隨機卡密繞過「以卡密為鍵」的限流
+heartbeat_ip_limiter = SlidingWindowLimiter(max(HEARTBEAT_RATE_LIMIT, 240), 60, "heartbeat_ip")
+admin_limiter = SlidingWindowLimiter(ADMIN_RATE_LIMIT, 60, "admin")
+# 後台密鑰錯誤嘗試：10 次 / 5 分鐘就鎖該 IP（防暴力破解）
+admin_fail_limiter = SlidingWindowLimiter(10, 300, "admin_fail")
+
+
+def _too_many(retry_after: int, message: str = "請求過於頻繁，請稍後再試 (Rate limit exceeded)"):
+    raise HTTPException(
+        status_code=429,
+        detail=message,
+        headers={"Retry-After": str(retry_after)},
+    )
+
 
 def check_rate_limit(request: Request):
-    client_ip = get_client_ip(request)
-    now = time.time()
-    valid_timestamps = [t for t in ip_request_timestamps.get(client_ip, []) if now - t < RATE_LIMIT_WINDOW]
-    if len(valid_timestamps) >= RATE_LIMIT_MAX:
-        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍後再試 (Rate limit exceeded)")
-    valid_timestamps.append(now)
-    ip_request_timestamps[client_ip] = valid_timestamps
+    """適用於 /api/verify（登入）。"""
+    ok, retry = verify_limiter.allow(get_client_ip(request))
+    if not ok:
+        _too_many(retry)
 
-    # 定期防止字典無限膨脹 (每累積超過 100 個 IP 清理一次過期 key)
-    if len(ip_request_timestamps) > 100:
-        for ip in list(ip_request_timestamps.keys()):
-            ip_request_timestamps[ip] = [t for t in ip_request_timestamps[ip] if now - t < RATE_LIMIT_WINDOW]
-            if not ip_request_timestamps[ip]:
-                ip_request_timestamps.pop(ip, None)
+
+def check_heartbeat_rate_limit(request: Request, license_key: str = ""):
+    """[v2] 心跳限流：
+    - 以「卡密」為主鍵，避免同一網段/CGNAT 的多個使用者互相拖累
+    - 另外加一層較寬的「每 IP」上限，防止有人用隨機卡密繞過
+    """
+    ip = get_client_ip(request)
+    ok, retry = heartbeat_ip_limiter.allow(f"hb-ip:{ip}")
+    if not ok:
+        _too_many(retry, "心跳過於頻繁 (Heartbeat rate limit exceeded)")
+    if license_key:
+        ok, retry = heartbeat_limiter.allow(f"hb:{license_key}")
+        if not ok:
+            _too_many(retry, "心跳過於頻繁 (Heartbeat rate limit exceeded)")
 
 # ------------------------------------------------------------------
-# WebSocket 連線註冊表
+# 連線註冊表（WebSocket + SSE 共用）
 # key = license_key, value = {"ws": WebSocket, "app_id": str, "username": str, "hwid": str, "ip": str, "connected_at": iso}
 # ------------------------------------------------------------------
 active_connections: Dict[str, dict] = {}
 
-async def push_status_to_key(license_key: str, status: str, message: str, extra: Optional[dict] = None):
-    """如果這把卡密目前在線上，推播狀態訊息給它並斷開連線。"""
-    entry = active_connections.get(license_key)
-    if entry is None:
+# ------------------------------------------------------------------
+# [v2] SSE 即時推播（Server-Sent Events）
+#
+#   為什麼要這個：
+#     原本「停用 / 黑名單 / 廣播」只會對「有開 WebSocket」的連線推送，
+#     但客戶端從來沒連過 /ws/license，所以實際上永遠推不到 0 個人，
+#     按「停用」只是把線上名單刪掉，玩家要等下一次心跳才會被踢。
+#
+#   SSE 的好處：它就是一條「不會結束的 HTTP GET」，用你現有的 libcurl
+#   就能接（不需要 WebSocket 支援，你的靜態庫實測沒有 WebSocket）。
+# ------------------------------------------------------------------
+SSE_KEEPALIVE_SECONDS = int(os.environ.get("SSE_KEEPALIVE_SECONDS", "25"))
+SSE_TICKET_TTL = int(os.environ.get("SSE_TICKET_TTL", "60"))
+SSE_MAX_PER_KEY = int(os.environ.get("SSE_MAX_PER_KEY", "2"))
+SSE_MAX_TOTAL = int(os.environ.get("SSE_MAX_TOTAL", "2000"))
+
+
+@dataclass(eq=False)
+class _StreamConn:
+    app_id: str
+    license_key: str
+    username: str
+    hwid: str
+    ip: str
+    queue: Optional[asyncio.Queue] = None
+
+
+# 注意：_streams 只在 event loop 內被讀寫，不需要鎖；
+#       _tickets 會被 threadpool 的同步端點存取，所以要鎖。
+_streams: Dict[str, List[_StreamConn]] = defaultdict(list)
+_tickets: Dict[str, Tuple[float, dict]] = {}
+_tickets_lock = threading.Lock()
+
+
+def _gc_tickets_locked(now: float):
+    if len(_tickets) < 2000:
         return
-    ws = entry.get("ws")
-    if ws:
-        payload = {"status": status, "message": message}
-        if extra:
-            payload.update(extra)
+    for t in [t for t, (exp, _) in _tickets.items() if exp < now]:
+        _tickets.pop(t, None)
+
+
+def create_stream_ticket(app_id: str, license_key: str, username: str, hwid: str, ip: str) -> str:
+    """建立一次性、短效（預設 60 秒）的串流門票，避免卡密直接出現在 URL / access log。"""
+    ticket = secrets.token_urlsafe(24)
+    now = time.time()
+    with _tickets_lock:
+        _gc_tickets_locked(now)
+        _tickets[ticket] = (now + SSE_TICKET_TTL, {
+            "app_id": app_id,
+            "license_key": license_key,
+            "username": username,
+            "hwid": hwid,
+            "ip": ip,
+        })
+    return ticket
+
+
+def consume_stream_ticket(ticket: str) -> Optional[dict]:
+    with _tickets_lock:
+        item = _tickets.pop(ticket, None)
+    if not item:
+        return None
+    expires_at, payload = item
+    if expires_at < time.time():
+        return None
+    return payload
+
+
+def publish_to_key(license_key: str, event: dict) -> int:
+    """把事件放進這張卡密的所有 SSE 佇列，回傳推送條數。"""
+    sent = 0
+    for conn in list(_streams.get(license_key, ())):
         try:
-            await ws.send_json(payload)
-            await ws.close()
-        except Exception as e:
-            print(f"[WebSocket Push Error] {e}")
-    active_connections.pop(license_key, None)
+            conn.queue.put_nowait(dict(event))
+            sent += 1
+        except Exception:
+            pass
+    return sent
+
+
+def publish_to_app(app_id: Optional[str], event: dict) -> int:
+    """推給某個 app 的所有 SSE 連線；app_id=None 表示全站。"""
+    sent = 0
+    for _key, conns in list(_streams.items()):
+        for conn in list(conns):
+            if app_id and conn.app_id != app_id:
+                continue
+            try:
+                conn.queue.put_nowait(dict(event))
+                sent += 1
+            except Exception:
+                pass
+    return sent
+
+
+async def _send_ws(entry: dict, payload: dict):
+    ws = entry.get("ws")
+    if not ws:
+        return
+    try:
+        await ws.send_json(payload)
+        await ws.close()
+    except Exception as e:
+        print(f"[WebSocket Push Error] {e}")
+
+
+async def push_status_to_key(license_key: str, status: str, message: str, extra: Optional[dict] = None):
+    """把狀態（停用/過期/黑名單/綁定重設…）推給這張卡密的所有連線。"""
+    event = {
+        "type": "status",
+        "status": status,
+        "message": message,
+        "ts": int(time.time() * 1000),
+    }
+    if extra:
+        event.update(extra)
+
+    # 1) SSE（主要通道）
+    publish_to_key(license_key, event)
+
+    # 2) WebSocket（如果客戶端有開才會有）
+    entry = active_connections.get(license_key)
+    if entry is not None:
+        await _send_ws(entry, {"status": status, "message": message, **(extra or {})})
+        active_connections.pop(license_key, None)
+
 
 async def broadcast_to_app(app_id: Optional[str], status: str, message: str, extra: Optional[dict] = None):
-    """推播給指定 app_id 或所有在線連線。"""
+    """推播給指定 app_id 或所有在線連線（維護模式等）。"""
+    event = {
+        "type": "status",
+        "status": status,
+        "message": message,
+        "ts": int(time.time() * 1000),
+    }
+    if extra:
+        event.update(extra)
+
+    publish_to_app(app_id, event)
+
     for license_key, entry in list(active_connections.items()):
         if not app_id or entry.get("app_id") == app_id:
-            await push_status_to_key(license_key, status, message, extra)
+            await _send_ws(entry, {"status": status, "message": message, **(extra or {})})
 
 # ------------------------------------------------------------------
 # Schemas
@@ -107,6 +370,9 @@ class VerifyRequest(BaseModel):
     version: str
     owner_id: Optional[str] = None
     app_name: Optional[str] = None
+    # [v2] 客戶端每次登入產生的隨機值；伺服器會把它簽進簽章並原樣回傳，
+    #      可以徹底防「重播舊的成功回應」。舊版客戶端不傳也能運作（向後相容）。
+    nonce: Optional[str] = None
 
 class HeartbeatRequest(BaseModel):
     license_key: str
@@ -114,6 +380,7 @@ class HeartbeatRequest(BaseModel):
     app_secret: str
     version: Optional[str] = None
     owner_id: Optional[str] = None
+    nonce: Optional[str] = None          # [v2]
 
 class VerifyResponse(BaseModel):
     status: str          # ok / invalid / expired / disabled / hwid_mismatch / maintenance / version_mismatch / blacklisted
@@ -124,6 +391,11 @@ class VerifyResponse(BaseModel):
     server_time_ms: Optional[int] = None
     signature: Optional[str] = None
     dynamic_payload: Optional[str] = None
+    # [v2] 以下三個欄位是「離線租約」核心，舊客戶端會忽略、不會壞
+    nonce: Optional[str] = None
+    lease_expires_ms: Optional[int] = None      # 租約到期時間（毫秒，UTC）
+    heartbeat_interval: Optional[int] = None    # 建議心跳間隔（秒），之後想調整不用重編客戶端
+    signature_v2: Optional[str] = None          # [v2] 新式簽章（含 nonce + 租約），舊欄位 signature 保留給舊客戶端
 
 class CreateKeyRequest(BaseModel):
     app_id: str
@@ -173,19 +445,63 @@ class SaveInternalSettingsRequest(BaseModel):
 # ------------------------------------------------------------------
 # 工具函式
 # ------------------------------------------------------------------
+# [v2] 輕量 TTL 快取：心跳路徑原本每個請求要打 5~6 次 Supabase，
+#      每次 30~150ms，累積起來就是「明明伺服器活著卻心跳逾時」的元凶之一。
+class TTLCache:
+    def __init__(self, default_ttl: float = 20.0):
+        self.default_ttl = default_ttl
+        self._data: Dict[str, Tuple[float, object]] = {}
+        self._lock = threading.Lock()
+
+    def get(self, key: str):
+        with self._lock:
+            item = self._data.get(key)
+            if item is None:
+                return False, None
+            expires_at, value = item
+            if expires_at < time.time():
+                self._data.pop(key, None)
+                return False, None
+            return True, value
+
+    def set(self, key: str, value, ttl: Optional[float] = None):
+        with self._lock:
+            self._data[key] = (time.time() + (self.default_ttl if ttl is None else ttl), value)
+
+    def invalidate(self, prefix: str = ""):
+        with self._lock:
+            for k in [k for k in self._data if k.startswith(prefix)]:
+                self._data.pop(k, None)
+
+
+app_cache = TTLCache(APP_CACHE_TTL)              # key: app_secret -> application row
+settings_cache = TTLCache(SETTINGS_CACHE_TTL)    # key: app_settings:{app_id}
+internal_cache = TTLCache(SETTINGS_CACHE_TTL)    # key: internal_settings:{app_id}
+blacklist_cache = TTLCache(BLACKLIST_CACHE_TTL)  # key: index
+
+
 def get_client_ip(request: Request) -> str:
-    cf_ip = request.headers.get("CF-Connecting-IP")
-    if cf_ip:
-        return cf_ip.strip()
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    # [v2] 注意：X-Forwarded-For 是可以自行偽造的；若有人直連 Render 的 onrender.com 網域
+    #      就可以自訂這個標頭來繞過「IP 黑名單」。真正重要的封鎖請用 HWID。
+    #      若前面確定只有 Cloudflare，可再收緊成只信任 CF-Connecting-IP。
+    if TRUST_PROXY_HEADERS:
+        cf_ip = request.headers.get("CF-Connecting-IP")
+        if cf_ip:
+            return cf_ip.strip()[:64]
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()[:64]
     return request.client.host if request.client else "127.0.0.1"
 
 def verify_download_authorization(app_id: str, license_key: Optional[str], hwid: Optional[str], client_ip: str, x_admin_token: Optional[str] = None):
     # 若提供管理員 Token 且驗證通過，允許管理員免卡密測試下載
-    if ADMIN_TOKEN and x_admin_token == ADMIN_TOKEN:
+    if ADMIN_TOKENS and x_admin_token and any(hmac.compare_digest(x_admin_token, t) for t in ADMIN_TOKENS):
         return
+
+    # [v2] 重要：v1 只要帶著 app_secret（而 app_secret 就寫在客戶端裡、任何人都能挖出來）
+    #      就能下載 DLL。設 REQUIRE_LICENSE_FOR_DOWNLOAD=1 後，必須有「有效卡密 + 已綁定裝置」。
+    if REQUIRE_LICENSE_FOR_DOWNLOAD and (not license_key or not hwid):
+        raise HTTPException(status_code=403, detail="無下載權限：請先以卡密登入驗證")
 
     # 1. 黑名單檢查
     is_bl, bl_msg = check_blacklist(app_id, hwid or "", client_ip)
@@ -202,7 +518,7 @@ def verify_download_authorization(app_id: str, license_key: Optional[str], hwid:
         if row["status"] != "active":
             raise HTTPException(status_code=403, detail="無下載權限：此卡密已被停用")
 
-        expires_at = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+        expires_at = parse_iso(row["expires_at"])
         if expires_at < datetime.now(timezone.utc):
             raise HTTPException(status_code=403, detail="無下載權限：此卡密已過期")
 
@@ -234,6 +550,11 @@ DEFAULT_APP_SETTINGS = {
 }
 
 def get_app_settings(app_id: str) -> dict:
+    # [v2] 先看快取；TTL 只有 20 秒，後台按「儲存」時會主動清掉，所以體感仍是即時。
+    hit, cached = settings_cache.get(f"app_settings:{app_id}")
+    if hit and isinstance(cached, dict):
+        return dict(cached)
+
     settings = dict(DEFAULT_APP_SETTINGS)
     if not supabase:
         return settings
@@ -250,9 +571,12 @@ def get_app_settings(app_id: str) -> dict:
                 settings["dynamic_payload"] = row["dynamic_payload"]
     except Exception as e:
         print(f"[Supabase Select Warning] {e}")
+    settings_cache.set(f"app_settings:{app_id}", dict(settings))
     return settings
 
 def set_app_settings(app_id: str, maintenance_mode: bool, maintenance_message: str, latest_version: str, update_changelog: str = "", dynamic_payload: str = "") -> Optional[str]:
+    # [v2] 寫入後立即失效快取，避免後台改了設定卻要等 TTL 才生效
+    settings_cache.invalidate(f"app_settings:{app_id}")
     if not supabase:
         return "Supabase client not initialized"
     try:
@@ -270,8 +594,33 @@ def set_app_settings(app_id: str, maintenance_mode: bool, maintenance_message: s
         print(f"[Supabase Upsert Error] {e}")
         return str(e)
 
-def require_admin(x_admin_token: str = Header(...)):
-    if not ADMIN_TOKEN or x_admin_token != ADMIN_TOKEN:
+def require_admin(request: Request, x_admin_token: Optional[str] = Header(None)):
+    """[v2] 後台驗證強化：
+    - 缺少 Token 時回 401（v1 用 Header(...) 會回 422，等於告訴攻擊者「這個端點存在」）
+    - 用 hmac.compare_digest 做常數時間比對（避免理論上的 timing attack）
+    - 支援多組 Token 輪替（ADMIN_TOKEN=a,b）
+    - 每 IP 每分鐘限流 + 錯誤超過 10 次鎖 5 分鐘（防暴力破解）
+    """
+    ip = get_client_ip(request)
+    ok, retry = admin_limiter.allow(f"admin:{ip}")
+    if not ok:
+        _too_many(retry, "後台請求過於頻繁")
+
+    if not ADMIN_TOKENS:
+        raise HTTPException(status_code=401, detail="Unauthorized: ADMIN_TOKEN not configured")
+    if not x_admin_token:
+        raise HTTPException(status_code=401, detail="Unauthorized: Missing X-Admin-Token")
+
+    matched = any(hmac.compare_digest(x_admin_token, t) for t in ADMIN_TOKENS)
+    if not matched:
+        ok_fail, retry_fail = admin_fail_limiter.allow(f"fail:{ip}")
+        # 注意：allow() 會在「還沒滿」時消耗一次；滿了才擋
+        if not ok_fail:
+            raise HTTPException(
+                status_code=429,
+                detail=f"密鑰錯誤次數過多，請 {retry_fail} 秒後再試",
+                headers={"Retry-After": str(retry_fail)},
+            )
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid Admin Token")
 
 def _random_token(length: int, alphabet: str) -> str:
@@ -287,10 +636,16 @@ def generate_app_secret() -> str:
 def resolve_app(app_secret: str) -> dict:
     if not supabase:
         raise HTTPException(status_code=500, detail="Database connection missing")
+    # [v2] app_secret 幾乎不會變，快取 60 秒可少一次 DB 往返（換密鑰時會主動清快取）
+    hit, cached = app_cache.get(app_secret)
+    if hit and isinstance(cached, dict):
+        return cached
     res = supabase.table("license_applications").select("*").eq("app_secret", app_secret).execute()
     if not res.data:
         raise HTTPException(status_code=403, detail="Invalid app secret")
-    return res.data[0]
+    app_row = res.data[0]
+    app_cache.set(app_secret, app_row)
+    return app_row
 
 def get_application_or_404(app_id: str) -> dict:
     if not supabase:
@@ -303,26 +658,49 @@ def get_application_or_404(app_id: str) -> dict:
 # ------------------------------------------------------------------
 # 黑名單與 HWID 多裝置解析功能
 # ------------------------------------------------------------------
-def check_blacklist(app_id: str, hwid: str, client_ip: str) -> tuple[bool, str]:
-    """檢查 HWID 或 IP 是否在黑名單中 (支援全域與 App 專屬黑名單)。"""
+def _load_blacklist_index() -> List[Tuple[str, str, str, str]]:
+    """[v2] 黑名單一次抓完整表並快取 20 秒（含預先轉小寫），
+    取代 v1 每次心跳都 select * 全表掃描的做法。"""
+    hit, cached = blacklist_cache.get("index")
+    if hit and isinstance(cached, list):
+        return cached
     if not supabase:
-        return False, ""
+        return []
     try:
-        res = supabase.table("blacklists").select("*").execute()
+        res = supabase.table("blacklists").select("app_id,type,value,reason").execute()
+        index: List[Tuple[str, str, str, str]] = []
         for row in res.data or []:
             row_app = row.get("app_id")
-            if row_app and str(row_app).strip() not in ["", "null", "undefined", "None"] and row_app != app_id:
-                continue
+            row_app = str(row_app).strip() if row_app is not None else ""
+            if row_app in ("", "null", "undefined", "None"):
+                row_app = ""
             b_type = (row.get("type") or "").lower().strip()
-            b_val = (row.get("value") or "").strip()
-            reason = row.get("reason") or "已被管理者列入黑名單"
-            
-            if b_type == "hwid" and hwid and b_val.lower() == hwid.lower():
-                return True, f"此裝置已封禁 ({reason})"
-            if b_type == "ip" and client_ip and b_val == client_ip:
-                return True, f"此 IP 位址已封禁 ({reason})"
+            b_val = (row.get("value") or "").strip().lower()
+            if not b_type or not b_val:
+                continue
+            index.append((row_app, b_type, b_val, row.get("reason") or "已被管理者列入黑名單"))
+        blacklist_cache.set("index", index)
+        return index
     except Exception as e:
+        # 注意：資料庫出錯時 v1/v2 都是「放行」(fail-open)；若你的商業模式要求
+        # 「DB 掛掉也不能用」，把下面改成 raise HTTPException(503) 即可。
         print(f"[Check Blacklist Warning] {e}")
+        return []
+
+
+def check_blacklist(app_id: str, hwid: str, client_ip: str) -> Tuple[bool, str]:
+    """檢查 HWID 或 IP 是否在黑名單中 (支援全域與 App 專屬黑名單)。"""
+    hwid_l = (hwid or "").strip().lower()
+    ip_l = (client_ip or "").strip().lower()
+    if not hwid_l and not ip_l:
+        return False, ""
+    for row_app, b_type, b_val, reason in _load_blacklist_index():
+        if row_app and row_app != app_id:
+            continue
+        if b_type == "hwid" and hwid_l and b_val == hwid_l:
+            return True, f"此裝置已封禁 ({reason})"
+        if b_type == "ip" and ip_l and b_val == ip_l:
+            return True, f"此 IP 位址已封禁 ({reason})"
     return False, ""
 
 def clean_active_connections():
@@ -350,7 +728,7 @@ def parse_hwids(hwid_str: Optional[str]) -> List[str]:
         pass
     return [hwid_str.strip().lower()]
 
-def check_and_bind_hwid(row: dict, input_hwid: str) -> tuple[str, str, Optional[List[str]]]:
+def check_and_bind_hwid(row: dict, input_hwid: str) -> Tuple[str, str, Optional[List[str]]]:
     clean_input = input_hwid.strip().lower()
     bound = parse_hwids(row.get("hwid"))
     max_dev = row.get("max_devices", 1)
@@ -364,13 +742,89 @@ def check_and_bind_hwid(row: dict, input_hwid: str) -> tuple[str, str, Optional[
 
     return "hwid_mismatch", f"此卡密已綁定滿 {max_dev} 台裝置 (現有: {len(bound)} 台)", None
 
-def generate_server_verification(app_secret: str, license_key: str, hwid: str) -> tuple[str, int, str]:
+
+def parse_iso(value) -> datetime:
+    """[v2] 統一解析 Supabase 回傳的時間欄位（可能是 str、可能是 datetime、可能是 naive）。"""
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        dt = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def apply_hwid_binding(row: dict, input_hwid: str, new_bound: Optional[List[str]]) -> Tuple[str, str]:
+    """[v2] 以樂觀鎖寫入 HWID，避免兩個請求同時綁定把 max_devices 撐爆。
+    回傳 (status, message)；status == "ok" 代表成功或不需要寫入。
+    """
+    if new_bound is None:
+        return "ok", ""
+    clean_input = input_hwid.strip().lower()
+    try:
+        query = supabase.table("license_keys").update({"hwid": json.dumps(new_bound)}).eq("id", row["id"])
+        old_value = row.get("hwid")
+        if old_value is None:
+            query = query.is_("hwid", "null")
+        else:
+            query = query.eq("hwid", old_value)
+        res = query.execute()
+        if res.data:
+            return "ok", ""
+    except Exception as e:
+        print(f"[HWID Bind Warning] {e}")
+        # 樂觀鎖語法不支援時退回舊寫法（至少不會讓使用者無法登入）
+        try:
+            supabase.table("license_keys").update({"hwid": json.dumps(new_bound)}).eq("id", row["id"]).execute()
+            return "ok", ""
+        except Exception as e2:
+            print(f"[HWID Bind Error] {e2}")
+            return "ok", ""
+
+    # 寫入被別人搶先 → 重讀確認是否已經包含本機
+    try:
+        fresh = supabase.table("license_keys").select("hwid,max_devices").eq("id", row["id"]).execute()
+        if fresh.data:
+            frow = fresh.data[0]
+            bound = parse_hwids(frow.get("hwid"))
+            if clean_input in bound:
+                return "ok", ""
+            max_dev = frow.get("max_devices", 1)
+            if len(bound) < max_dev:
+                bound = bound + [clean_input]
+                supabase.table("license_keys").update({"hwid": json.dumps(bound)}).eq("id", row["id"]).execute()
+                return "ok", ""
+            return "hwid_mismatch", f"此卡密已綁定滿 {max_dev} 台裝置 (現有: {len(bound)} 台)"
+    except Exception as e:
+        print(f"[HWID Recheck Warning] {e}")
+    return "ok", ""
+
+# [v2] 伺服器建議的心跳間隔（秒）。客戶端會照這個值調整，之後改這裡就能調負載，
+#      不用重新編譯 DLL。10 秒太兇（免費方案容易被冷啟動拖垮），30~60 秒就夠。
+HEARTBEAT_INTERVAL_SECONDS = int(os.environ.get("HEARTBEAT_INTERVAL_SECONDS", "30"))
+
+
+def generate_server_verification(app_secret: str, license_key: str, hwid: str,
+                                 nonce: str = "", lease_seconds: int = LEASE_TTL_SECONDS):
+    """回傳 (server_timestamp_iso, server_time_ms, signature_legacy, signature_v2, lease_expires_ms)
+
+    - signature_legacy：與 v1 完全相同（`ts:key:hwid`），已部署的舊客戶端不會壞。
+    - signature_v2    ：`v2:ts:key:hwid:nonce:lease_ms`，新客戶端「必須」驗證，
+                        且 timestamp/租約都有，攻擊者無法重播舊回應。
+    """
     now = datetime.now(timezone.utc)
     server_timestamp = now.isoformat()
     server_time_ms = int(now.timestamp() * 1000)
-    msg = f"{server_time_ms}:{license_key}:{hwid}"
-    sig = hmac.new(app_secret.encode("utf-8"), msg.encode("utf-8"), hashlib.sha256).hexdigest()
-    return server_timestamp, server_time_ms, sig
+    lease_ms = server_time_ms + max(0, int(lease_seconds)) * 1000
+
+    # 舊版簽章（向後相容，勿改格式）
+    legacy_msg = f"{server_time_ms}:{license_key}:{hwid}"
+    sig_legacy = hmac.new(app_secret.encode("utf-8"), legacy_msg.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    # 新版簽章（含 nonce 與租約）
+    v2_msg = f"v2:{server_time_ms}:{license_key}:{hwid}:{nonce or ''}:{lease_ms}"
+    sig_v2 = hmac.new(app_secret.encode("utf-8"), v2_msg.encode("utf-8"), hashlib.sha256).hexdigest()
+    return server_timestamp, server_time_ms, sig_legacy, sig_v2, lease_ms
 
 # ------------------------------------------------------------------
 # FastAPI 根路由與 Health
@@ -381,8 +835,18 @@ async def root():
     return {"status": "ok", "service": "YangEnx License System Pro"}
 
 @app.get("/health")
-async def health_check():
-    return {"status": "ok"}
+async def health_check(deep: int = Query(0)):
+    """[v2] deep=1 會順便打一次 Supabase（很輕的 select），
+    用途：讓 UptimeRobot / cron-job.org 打這個端點，同時把 Render 和 Supabase 都保溫。"""
+    if not deep:
+        return {"status": "ok"}
+    if not supabase:
+        return JSONResponse(status_code=503, content={"status": "degraded", "db": "not_configured"})
+    try:
+        await run_in_threadpool(lambda: supabase.table("license_applications").select("id").limit(1).execute())
+        return {"status": "ok", "db": "ok"}
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"status": "degraded", "db": str(e)[:200]})
 
 @app.get("/admin")
 def admin_panel():
@@ -451,23 +915,38 @@ def verify(req: VerifyRequest, request: Request, _: None = Depends(check_rate_li
         log_event(row["username"], "LOGIN_FAILED", "此卡密已被停用", req.hwid, client_ip)
         return VerifyResponse(status="disabled", message="此卡密已被停用")
 
-    expires_at = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+    expires_at = parse_iso(row["expires_at"])
     if expires_at < datetime.now(timezone.utc):
         log_event(row["username"], "LOGIN_FAILED", "此卡密已過期", req.hwid, client_ip)
         return VerifyResponse(status="expired", message="此卡密已過期")
 
-    # 5. 多裝置 HWID 比對與動態綁定
+    # 5. 多裝置 HWID 比對與動態綁定（[v2] 樂觀鎖，避免同時綁定超過 max_devices）
     hwid_status, hwid_msg, new_bound = check_and_bind_hwid(row, req.hwid)
     if hwid_status != "ok":
         log_event(row["username"], "LOGIN_FAILED", hwid_msg, req.hwid, client_ip)
         return VerifyResponse(status="hwid_mismatch", message=hwid_msg)
 
-    update_data = {"last_seen_at": datetime.now(timezone.utc).isoformat()}
-    if new_bound is not None:
-        update_data["hwid"] = json.dumps(new_bound)
-    supabase.table("license_keys").update(update_data).eq("id", row["id"]).execute()
+    bind_status, bind_msg = apply_hwid_binding(row, req.hwid, new_bound)
+    if bind_status != "ok":
+        log_event(row["username"], "LOGIN_FAILED", bind_msg, req.hwid, client_ip)
+        return VerifyResponse(status=bind_status, message=bind_msg)
 
-    server_ts, server_ms, sig = generate_server_verification(req.app_secret, req.license_key, req.hwid)
+    # [v2] last_seen_at 不再每次登入都寫（減少 DB 寫入）；60 秒內重複登入直接略過
+    try:
+        last_seen = row.get("last_seen_at")
+        need_touch = True
+        if last_seen:
+            need_touch = (datetime.now(timezone.utc) - parse_iso(last_seen)).total_seconds() > LAST_SEEN_WRITE_INTERVAL
+        if need_touch:
+            supabase.table("license_keys").update({
+                "last_seen_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", row["id"]).execute()
+    except Exception as e:
+        print(f"[last_seen update warning] {e}")
+
+    server_ts, server_ms, sig, sig_v2, lease_ms = generate_server_verification(
+        req.app_secret, req.license_key, req.hwid, req.nonce or ""
+    )
     dynamic_payload = settings.get("dynamic_payload", "")
 
     # 註冊即時在線連線監控
@@ -489,12 +968,89 @@ def verify(req: VerifyRequest, request: Request, _: None = Depends(check_rate_li
         server_timestamp=server_ts,
         server_time_ms=server_ms,
         signature=sig,
+        signature_v2=sig_v2,
+        nonce=req.nonce,
+        lease_expires_ms=lease_ms,
+        heartbeat_interval=HEARTBEAT_INTERVAL_SECONDS,
         dynamic_payload=dynamic_payload,
     )
 
 # ------------------------------------------------------------------
 # WebSocket 即時推播與心跳維持: WS /ws/license
 # ------------------------------------------------------------------
+class _WSReject(Exception):
+    """WebSocket 授權失敗（內部用）。"""
+
+    def __init__(self, status: str, message: str):
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
+
+def _ws_validate(app_secret: str, license_key: str, hwid: str, version: Optional[str],
+                 owner_id: Optional[str], client_ip: str):
+    """[v2] 把 WebSocket 的授權檢查搬到 threadpool 執行。
+
+    原本 v1 在 async 函式裡直接呼叫同步 Supabase（阻塞 event loop），
+    只要有一條連線在等 DB，整個伺服器（含所有心跳）都會被卡住；
+    Render 免費版只有 0.1 CPU，這種阻塞很容易被放大成「全部人一起斷線」。
+    """
+    try:
+        application = resolve_app(app_secret)
+    except HTTPException:
+        raise _WSReject("invalid", "Invalid app secret")
+
+    app_id = application["id"]
+    if owner_id and application.get("owner_id") != owner_id:
+        raise _WSReject("invalid", "Owner ID mismatch")
+
+    is_bl, bl_msg = check_blacklist(app_id, hwid, client_ip)
+    if is_bl:
+        raise _WSReject("blacklisted", bl_msg)
+
+    app_type = (application.get("app_type") or "dll").lower()
+    settings = get_app_settings(app_id)
+
+    if settings.get("maintenance_mode"):
+        raise _WSReject("maintenance", settings.get("maintenance_message") or "卡密系統維護中")
+
+    if app_type == "exe":
+        if version and normalize_version(version) != normalize_version(settings["latest_version"]):
+            raise _WSReject("version_mismatch", f"請更新至 {settings['latest_version']}")
+    else:
+        internal_s = get_internal_settings(app_id)
+        if internal_s.get("stopped"):
+            raise _WSReject("maintenance", internal_s.get("stop_message") or "YangEnx Internal 停服維護中")
+        if version:
+            client_ver = normalize_version(settings["latest_version"])
+            internal_ver = normalize_version(internal_s.get("latest_version"))
+            req_ver = normalize_version(version)
+            if req_ver != client_ver and req_ver != internal_ver:
+                raise _WSReject("version_mismatch", f"請更新至 {settings['latest_version']}")
+
+    res = (
+        supabase.table("license_keys")
+        .select("*")
+        .eq("license_key", license_key)
+        .eq("app_id", app_id)
+        .execute()
+    )
+    if not res.data:
+        raise _WSReject("invalid", "卡密不存在或已被刪除")
+
+    row = res.data[0]
+    if row["status"] != "active":
+        raise _WSReject("disabled", "此卡密已被停用")
+    if parse_iso(row["expires_at"]) < datetime.now(timezone.utc):
+        raise _WSReject("expired", "此卡密已過期")
+
+    hwid_status, hwid_msg, _ = check_and_bind_hwid(row, hwid)
+    if hwid_status != "ok":
+        raise _WSReject("hwid_mismatch", hwid_msg)
+
+    return application, row, settings
+
+
 @app.websocket("/ws/license")
 async def ws_license(
     websocket: WebSocket,
@@ -504,98 +1060,40 @@ async def ws_license(
     version: Optional[str] = Query(None),
     owner_id: Optional[str] = Query(None),
     app_name: Optional[str] = Query(None),
+    nonce: Optional[str] = Query(None),
 ):
-    cf_ip = websocket.headers.get("CF-Connecting-IP")
-    forwarded = websocket.headers.get("X-Forwarded-For")
-    if cf_ip:
-        client_ip = cf_ip.strip()
-    elif forwarded:
-        client_ip = forwarded.split(",")[0].strip()
+    if TRUST_PROXY_HEADERS:
+        cf_ip = websocket.headers.get("CF-Connecting-IP")
+        forwarded = websocket.headers.get("X-Forwarded-For")
+        if cf_ip:
+            client_ip = cf_ip.strip()
+        elif forwarded:
+            client_ip = forwarded.split(",")[0].strip()
+        else:
+            client_ip = websocket.client.host if websocket.client else "127.0.0.1"
     else:
         client_ip = websocket.client.host if websocket.client else "127.0.0.1"
 
-    res_app = supabase.table("license_applications").select("*").eq("app_secret", app_secret).execute()
-    if not res_app.data:
-        await websocket.close(code=4003)
-        return
-    application = res_app.data[0]
-    app_id = application["id"]
-
-    if owner_id and application.get("owner_id") != owner_id:
-        await websocket.close(code=4003)
-        return
-
     await websocket.accept()
 
-    # 1. 檢查黑名單
-    is_bl, bl_msg = check_blacklist(app_id, hwid, client_ip)
-    if is_bl:
-        await websocket.send_json({"status": "blacklisted", "message": bl_msg})
-        await websocket.close()
+    # [v2] 所有阻塞式 DB 呼叫都丟到 threadpool，不再卡住 event loop
+    try:
+        application, row, settings = await run_in_threadpool(
+            _ws_validate, app_secret, license_key, hwid, version, owner_id, client_ip
+        )
+    except _WSReject as rej:
+        try:
+            await websocket.send_json({"status": rej.status, "message": rej.message})
+            await websocket.close()
+        except Exception:
+            pass
         return
 
-    # 2. 檢查維護模式與版本 (區分 EXE 與 DLL 邏輯)
-    app_type = (application.get("app_type") or "dll").lower()
-    settings = get_app_settings(app_id)
+    app_id = application["id"]
 
-    if settings.get("maintenance_mode"):
-        await websocket.send_json({"status": "maintenance", "message": settings.get("maintenance_message") or "卡密系統維護中"})
-        await websocket.close()
-        return
-
-    if app_type == "exe":
-        if version and normalize_version(version) != normalize_version(settings["latest_version"]):
-            await websocket.send_json({"status": "version_mismatch", "message": f"請更新至 {settings['latest_version']}"})
-            await websocket.close()
-            return
-    else:
-        internal_s = get_internal_settings(app_id)
-        if internal_s.get("stopped"):
-            await websocket.send_json({"status": "maintenance", "message": internal_s.get("stop_message") or "YangEnx Internal 停服維護中"})
-            await websocket.close()
-            return
-        if version:
-            client_ver = normalize_version(settings["latest_version"])
-            internal_ver = normalize_version(internal_s.get("latest_version"))
-            req_ver = normalize_version(version)
-            if req_ver != client_ver and req_ver != internal_ver:
-                await websocket.send_json({"status": "version_mismatch", "message": f"請更新至 {settings['latest_version']}"})
-                await websocket.close()
-                return
-
-    # 3. 檢查卡密狀態
-    res = (
-        supabase.table("license_keys")
-        .select("*")
-        .eq("license_key", license_key)
-        .eq("app_id", app_id)
-        .execute()
+    server_ts, server_ms, sig, sig_v2, lease_ms = generate_server_verification(
+        app_secret, license_key, hwid, nonce or ""
     )
-    if not res.data:
-        await websocket.send_json({"status": "invalid", "message": "卡密不存在或已被刪除"})
-        await websocket.close()
-        return
-
-    row = res.data[0]
-    if row["status"] != "active":
-        await websocket.send_json({"status": "disabled", "message": "此卡密已被停用"})
-        await websocket.close()
-        return
-
-    expires_at = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
-    if expires_at < datetime.now(timezone.utc):
-        await websocket.send_json({"status": "expired", "message": "此卡密已過期"})
-        await websocket.close()
-        return
-
-    hwid_status, hwid_msg, _ = check_and_bind_hwid(row, hwid)
-    if hwid_status != "ok":
-        await websocket.send_json({"status": "hwid_mismatch", "message": hwid_msg})
-        await websocket.close()
-        return
-
-    # 4. 註冊在線連線
-    server_ts, server_ms, sig = generate_server_verification(app_secret, license_key, hwid)
     active_connections[license_key] = {
         "ws": websocket,
         "app_id": app_id,
@@ -603,6 +1101,7 @@ async def ws_license(
         "hwid": hwid,
         "ip": client_ip,
         "connected_at": datetime.now(timezone.utc).isoformat(),
+        "last_seen": time.time(),
     }
 
     await websocket.send_json({
@@ -611,6 +1110,10 @@ async def ws_license(
         "server_timestamp": server_ts,
         "server_time_ms": server_ms,
         "signature": sig,
+        "signature_v2": sig_v2,
+        "nonce": nonce,
+        "lease_expires_ms": lease_ms,
+        "heartbeat_interval": HEARTBEAT_INTERVAL_SECONDS,
         "dynamic_payload": settings.get("dynamic_payload", "")
     })
 
@@ -618,8 +1121,13 @@ async def ws_license(
         while True:
             text = await websocket.receive_text()
             if "ping" in text.lower():
-                _, ts_ms, _ = generate_server_verification(app_secret, license_key, hwid)
-                await websocket.send_json({"status": "pong", "message": "pong", "server_time_ms": ts_ms})
+                _, ts_ms, _, _, lms = generate_server_verification(app_secret, license_key, hwid, nonce or "")
+                await websocket.send_json({
+                    "status": "pong",
+                    "message": "pong",
+                    "server_time_ms": ts_ms,
+                    "lease_expires_ms": lms,
+                })
     except WebSocketDisconnect:
         pass
     finally:
@@ -627,11 +1135,164 @@ async def ws_license(
         if entry is not None and entry.get("ws") is websocket:
             active_connections.pop(license_key, None)
 
+
+# ------------------------------------------------------------------
+# [v2] SSE 即時推播：1) 換門票  2) 建立串流
+# ------------------------------------------------------------------
+class StreamTicketRequest(BaseModel):
+    license_key: str
+    hwid: str
+    app_secret: str
+    owner_id: Optional[str] = None
+
+
+@app.post("/api/stream/ticket")
+def create_stream_ticket_endpoint(req: StreamTicketRequest, request: Request):
+    """用卡密換一張 60 秒有效、只能用一次的串流門票。
+
+    回傳一律 200 + status 欄位（跟 /api/verify 一致），
+    這樣客戶端可以分辨「授權被拒」與「網路錯誤」。
+    """
+    check_heartbeat_rate_limit(request, req.license_key)
+    client_ip = get_client_ip(request)
+
+    try:
+        application = resolve_app(req.app_secret)
+    except HTTPException:
+        return {"status": "invalid", "message": "Invalid app secret"}
+
+    app_id = application["id"]
+    if req.owner_id and application.get("owner_id") != req.owner_id:
+        return {"status": "invalid", "message": "Owner ID mismatch"}
+
+    is_bl, bl_msg = check_blacklist(app_id, req.hwid, client_ip)
+    if is_bl:
+        return {"status": "blacklisted", "message": bl_msg}
+
+    if not supabase:
+        return {"status": "server_error", "message": "Database not configured"}
+
+    res = (
+        supabase.table("license_keys")
+        .select("*")
+        .eq("license_key", req.license_key)
+        .eq("app_id", app_id)
+        .execute()
+    )
+    if not res.data:
+        return {"status": "invalid", "message": "卡密不存在或已被刪除"}
+
+    row = res.data[0]
+    if row["status"] != "active":
+        return {"status": "disabled", "message": "此卡密已被停用"}
+    if parse_iso(row["expires_at"]) < datetime.now(timezone.utc):
+        return {"status": "expired", "message": "此卡密已過期"}
+
+    if (req.hwid or "").strip().lower() not in parse_hwids(row.get("hwid")):
+        return {"status": "hwid_mismatch", "message": "此裝置尚未綁定，請先重新登入"}
+
+    settings = get_app_settings(app_id)
+    if settings.get("maintenance_mode"):
+        return {"status": "maintenance", "message": settings.get("maintenance_message") or "卡密系統維護中"}
+
+    ticket = create_stream_ticket(app_id, req.license_key, row.get("username", ""), req.hwid, client_ip)
+    return {"status": "ok", "message": "ok", "ticket": ticket, "expires_in": SSE_TICKET_TTL}
+
+
+@app.get("/api/stream")
+async def license_stream(request: Request, ticket: str = Query(...)):
+    payload = consume_stream_ticket(ticket)
+    if not payload:
+        # 401 讓客戶端知道要重新換票，而不是「卡密無效」
+        raise HTTPException(status_code=401, detail="Invalid or expired stream ticket")
+
+    total_conns = sum(len(v) for v in _streams.values())
+    if total_conns >= SSE_MAX_TOTAL:
+        raise HTTPException(status_code=503, detail="Too many streaming connections")
+
+    license_key = payload["license_key"]
+    conn = _StreamConn(
+        app_id=payload["app_id"],
+        license_key=license_key,
+        username=payload.get("username", ""),
+        hwid=payload.get("hwid", ""),
+        ip=payload.get("ip", ""),
+    )
+    conn.queue = asyncio.Queue(maxsize=64)
+    _streams[license_key].append(conn)
+
+    # 同一張卡密最多 N 條（避免共用卡密掛一堆連線），超過就請舊的退出
+    while len(_streams[license_key]) > SSE_MAX_PER_KEY:
+        old = _streams[license_key].pop(0)
+        try:
+            old.queue.put_nowait({
+                "type": "status",
+                "status": "duplicate",
+                "message": "此卡密已在其他位置建立新連線",
+                "ts": int(time.time() * 1000),
+            })
+        except Exception:
+            pass
+
+    prev = active_connections.get(license_key) or {}
+    active_connections[license_key] = {
+        "app_id": payload["app_id"],
+        "username": conn.username,
+        "hwid": conn.hwid,
+        "ip": conn.ip,
+        "connected_at": prev.get("connected_at") or datetime.now(timezone.utc).isoformat(),
+        "last_seen": time.time(),
+        "sse": True,
+        "ws": prev.get("ws"),
+    }
+
+    async def event_generator():
+        yield "retry: 5000\n\n"
+        yield "data: " + json.dumps({
+            "type": "hello",
+            "status": "ok",
+            "message": "stream established",
+            "ts": int(time.time() * 1000),
+        }, ensure_ascii=False) + "\n\n"
+
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(conn.queue.get(), timeout=SSE_KEEPALIVE_SECONDS)
+                    yield "data: " + json.dumps(event, ensure_ascii=False) + "\n\n"
+                except asyncio.TimeoutError:
+                    # 保活註解：Cloudflare 大約 100 秒沒資料就會切斷連線
+                    yield ": ping\n\n"
+        except asyncio.CancelledError:
+            raise
+        finally:
+            try:
+                _streams[license_key].remove(conn)
+            except ValueError:
+                pass
+            if not _streams.get(license_key):
+                _streams.pop(license_key, None)
+                entry = active_connections.get(license_key)
+                if entry is not None and entry.get("sse") and not entry.get("ws"):
+                    active_connections.pop(license_key, None)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
 # ------------------------------------------------------------------
 # 相容性心跳 API: POST /api/heartbeat
 # ------------------------------------------------------------------
 @app.post("/api/heartbeat", response_model=VerifyResponse)
 def heartbeat(req: HeartbeatRequest, request: Request):
+    # [v2] 心跳限流（以卡密為鍵），防止有人拿 heartbeat 當免費 DB 查詢 API
+    check_heartbeat_rate_limit(request, req.license_key)
     client_ip = get_client_ip(request)
     application = resolve_app(req.app_secret)
     app_id = application["id"]
@@ -674,7 +1335,7 @@ def heartbeat(req: HeartbeatRequest, request: Request):
     if row["status"] != "active":
         return VerifyResponse(status="disabled", message="此卡密已被停用")
 
-    expires_at = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+    expires_at = parse_iso(row["expires_at"])
     if expires_at < datetime.now(timezone.utc):
         return VerifyResponse(status="expired", message="此卡密已過期")
 
@@ -682,9 +1343,18 @@ def heartbeat(req: HeartbeatRequest, request: Request):
     if hwid_status != "ok":
         return VerifyResponse(status="hwid_mismatch", message=hwid_msg)
 
-    supabase.table("license_keys").update({
-        "last_seen_at": datetime.now(timezone.utc).isoformat(),
-    }).eq("id", row["id"]).execute()
+    # [v2] last_seen_at 只在超過 60 秒才寫，DB 寫入量可降 ~6 倍
+    try:
+        last_seen = row.get("last_seen_at")
+        need_touch = True
+        if last_seen:
+            need_touch = (datetime.now(timezone.utc) - parse_iso(last_seen)).total_seconds() > LAST_SEEN_WRITE_INTERVAL
+        if need_touch:
+            supabase.table("license_keys").update({
+                "last_seen_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", row["id"]).execute()
+    except Exception as e:
+        print(f"[heartbeat last_seen warning] {e}")
 
     # 更新在線連線維護狀態
     active_connections[req.license_key] = {
@@ -696,14 +1366,21 @@ def heartbeat(req: HeartbeatRequest, request: Request):
         "last_seen": time.time()
     }
 
-    server_ts, server_ms, sig = generate_server_verification(req.app_secret, req.license_key, req.hwid)
+    server_ts, server_ms, sig, sig_v2, lease_ms = generate_server_verification(
+        req.app_secret, req.license_key, req.hwid, req.nonce or ""
+    )
     return VerifyResponse(
         status="ok",
         message="心跳成功",
         username=row["username"],
+        expires_at=row["expires_at"],
         server_timestamp=server_ts,
         server_time_ms=server_ms,
         signature=sig,
+        signature_v2=sig_v2,
+        nonce=req.nonce,
+        lease_expires_ms=lease_ms,
+        heartbeat_interval=HEARTBEAT_INTERVAL_SECONDS,
         dynamic_payload=settings.get("dynamic_payload", "")
     )
 
@@ -747,6 +1424,7 @@ def toggle_app_type(app_id: str):
     new_type = "exe" if current_type == "dll" else "dll"
 
     res = supabase.table("license_applications").update({"app_type": new_type}).eq("id", app_id).execute()
+    app_cache.invalidate()   # [v2] app_type 有快取，改完要立刻失效
     return res.data[0] if res.data else {"id": app_id, "app_type": new_type}
 
 @app.delete("/api/admin/apps/{app_id}", dependencies=[Depends(require_admin)])
@@ -758,6 +1436,9 @@ async def delete_application(app_id: str):
 
     supabase.table("license_keys").delete().eq("app_id", app_id).execute()
     supabase.table("license_applications").delete().eq("id", app_id).execute()
+    app_cache.invalidate()        # [v2]
+    settings_cache.invalidate(f"app_settings:{app_id}")
+    internal_cache.invalidate(f"internal:{app_id}")
     return {"ok": True}
 
 @app.patch("/api/admin/apps/{app_id}/rotate-secret", dependencies=[Depends(require_admin)])
@@ -765,6 +1446,7 @@ async def rotate_app_secret(app_id: str):
     get_application_or_404(app_id)
     new_secret = generate_app_secret()
     res = supabase.table("license_applications").update({"app_secret": new_secret}).eq("id", app_id).execute()
+    app_cache.invalidate()   # [v2] 舊密鑰的快取必須立刻失效，否則舊客戶端還能繼續用 60 秒
 
     keys_res = supabase.table("license_keys").select("license_key").eq("app_id", app_id).execute()
     for row in keys_res.data or []:
@@ -835,7 +1517,7 @@ async def extend_key(key_id: int, req: ExtendKeyRequest):
             raise HTTPException(status_code=400, detail=f"到期時間格式無效：{e}")
     elif req.days is not None:
         try:
-            curr_expires = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+            curr_expires = parse_iso(row["expires_at"])
             base_time = max(curr_expires, now_utc)
             new_expiry = base_time + timedelta(days=req.days)
         except Exception:
@@ -957,7 +1639,10 @@ async def send_broadcast(req: BroadcastRequest):
     }
 
     clean_active_connections()
-    count = 0
+
+    # [v2] 先推 SSE（客戶端主要通道），再補 WebSocket（如果有開）
+    count = publish_to_app(target_app_id, announcement_payload)
+
     for license_key, entry in list(active_connections.items()):
         if not target_app_id or entry.get("app_id") == target_app_id:
             ws = entry.get("ws")
@@ -1032,6 +1717,8 @@ async def add_blacklist(req: BlacklistCreateRequest):
         print(f"[Blacklist Insert Error] {e}")
         raise HTTPException(status_code=500, detail=f"寫入 Supabase 失敗：請確認在 Supabase SQL Editor 中已執行 SQL 建立 blacklists 資料表！錯誤詳情：{e}")
 
+    blacklist_cache.invalidate("index")   # [v2] 新封鎖立即生效（不用等 20 秒 TTL）
+
     # 即時踢掉所有符合此黑名單的線上用戶
     clean_active_connections()
     kicked_count = 0
@@ -1058,6 +1745,7 @@ def delete_blacklist(blacklist_id: int):
         supabase.table("blacklists").delete().eq("id", blacklist_id).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"刪除失敗：{e}")
+    blacklist_cache.invalidate("index")   # [v2]
     return {"ok": True}
 
 # ------------------------------------------------------------------
@@ -1239,6 +1927,11 @@ DEFAULT_INTERNAL_SETTINGS = {
 }
 
 def get_internal_settings(app_id: str) -> dict:
+    # [v2] 快取 20 秒（DLL 版本/停服狀態不需要每 10 秒問一次 DB）
+    hit, cached = internal_cache.get(f"internal:{app_id}")
+    if hit and isinstance(cached, dict):
+        return dict(cached)
+
     settings = dict(DEFAULT_INTERNAL_SETTINGS)
 
     if supabase:
@@ -1250,6 +1943,7 @@ def get_internal_settings(app_id: str) -> dict:
                 settings["update_changelog"] = row.get("update_changelog", "")
                 settings["stopped"] = bool(row.get("stopped", False))
                 settings["stop_message"] = row.get("stop_message") or DEFAULT_INTERNAL_SETTINGS["stop_message"]
+                internal_cache.set(f"internal:{app_id}", dict(settings))
                 return settings
         except Exception as e:
             print(f"[Supabase internal_settings Select Warning] {e}")
@@ -1265,9 +1959,11 @@ def get_internal_settings(app_id: str) -> dict:
                 settings["stop_message"] = data.get("stop_message") or DEFAULT_INTERNAL_SETTINGS["stop_message"]
         except Exception:
             pass
+    internal_cache.set(f"internal:{app_id}", dict(settings))
     return settings
 
 def set_internal_settings(app_id: str, latest_version: str, update_changelog: str = "", stopped: Optional[bool] = None, stop_message: Optional[str] = None) -> Optional[str]:
+    internal_cache.invalidate(f"internal:{app_id}")   # [v2] 立即生效
     current = get_internal_settings(app_id)
     new_stopped = current["stopped"] if stopped is None else bool(stopped)
     new_stop_message = current["stop_message"] if stop_message is None else stop_message.strip()
@@ -1445,7 +2141,8 @@ def download_internal_file(
     app_id = application["id"]
 
     internal_s = get_internal_settings(app_id)
-    if internal_s.get("stopped", False) and not (ADMIN_TOKEN and x_admin_token == ADMIN_TOKEN):
+    is_admin = bool(ADMIN_TOKENS and x_admin_token and any(hmac.compare_digest(x_admin_token, t) for t in ADMIN_TOKENS))
+    if internal_s.get("stopped", False) and not is_admin:
         raise HTTPException(status_code=503, detail=internal_s.get("stop_message") or "YangEnx Internal 停服維護中")
 
     verify_download_authorization(app_id, license_key, hwid, client_ip, x_admin_token)
