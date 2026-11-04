@@ -889,7 +889,15 @@ async def health_check(deep: int = Query(0)):
 
 @app.get("/admin")
 def admin_panel():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "admin.html"))
+    # 後台 HTML 不給瀏覽器快取：不然改完樣式，手機還會拿著舊版頁面（上次就是這樣）
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "admin.html"),
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 # ------------------------------------------------------------------
 # 卡密驗證：POST /api/verify
