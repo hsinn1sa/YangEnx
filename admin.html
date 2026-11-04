@@ -586,8 +586,10 @@
 
   /* ---------------- Applications ---------------- */
   .app-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
-  .app-create-row { display: flex; gap: 8px; }
-  .app-create-row input { width: 220px; }
+  .app-create-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .app-create-row input { width: 220px; min-width: 0; flex: 1 1 200px; }
+  .app-create-row select { flex: 0 0 130px; min-width: 0; }
+  .app-create-row .btn { flex: 0 0 auto; white-space: nowrap; }
   .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
   .app-card {
     background: #0d0d14;
@@ -621,6 +623,13 @@
     .form-grid { grid-template-columns: 1fr; }
     .table-toolbar input, .table-toolbar select { width: 100%; }
     .tab-btn { font-size: 12px; padding: 10px 8px; }
+
+    /* 新增應用程式：手機版改成直排，按鈕不會被擠出畫面 */
+    .app-toolbar { align-items: stretch; }
+    .app-create-row { flex: 1 1 100%; width: 100%; flex-direction: column; align-items: stretch; gap: 10px; }
+    .app-create-row input,
+    .app-create-row select,
+    .app-create-row .btn { width: 100%; flex: 1 1 auto; }
   }
 </style>
 </head>
@@ -799,7 +808,7 @@
         <div class="app-toolbar">
           <div class="app-create-row">
             <input type="text" id="new-app-name" placeholder="應用程式名稱 (例如: GameHack)" />
-            <select id="new-app-type" style="width:130px;">
+            <select id="new-app-type">
               <option value="dll">DLL 類型</option>
               <option value="exe">EXE 類型</option>
             </select>
