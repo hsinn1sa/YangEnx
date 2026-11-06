@@ -576,8 +576,6 @@ def get_app_settings(app_id: str) -> dict:
     return settings
 
 def set_app_settings(app_id: str, maintenance_mode: bool, maintenance_message: str, latest_version: str, update_changelog: str = "", dynamic_payload: str = "") -> Optional[str]:
-    # [v2] 寫入後立即失效快取，避免後台改了設定卻要等 TTL 才生效
-    settings_cache.invalidate(f"app_settings:{app_id}")
     update_changelog = _repair_mojibake(update_changelog)   # [v2] 統一修正亂碼
     if not supabase:
         return "Supabase client not initialized"
@@ -595,6 +593,10 @@ def set_app_settings(app_id: str, maintenance_mode: bool, maintenance_message: s
     except Exception as e:
         print(f"[Supabase Upsert Error] {e}")
         return str(e)
+    finally:
+        # 一定要在「寫入之後」才清快取：先清的話，別的請求可能在 upsert 完成前
+        # 又把資料庫裡的舊值讀回快取，後台就會顯示上一個版本（上傳後版本跳回舊的就是這個原因）。
+        settings_cache.invalidate(f"app_settings:{app_id}")
 
 def require_admin(request: Request, x_admin_token: Optional[str] = Header(None)):
     """[v2] 後台驗證強化：
@@ -1872,7 +1874,9 @@ async def upload_client_file(
         )
 
     # [v2] 確認檔案真的進 Storage 之後，才更新版本號與說明
-    set_app_settings(app_id, settings["maintenance_mode"], settings["maintenance_message"], latest_version, update_changelog, settings.get("dynamic_payload", ""))
+    settings_err = set_app_settings(app_id, settings["maintenance_mode"], settings["maintenance_message"], latest_version, update_changelog, settings.get("dynamic_payload", ""))
+    if settings_err:
+        raise HTTPException(status_code=500, detail=f"檔案已上傳，但版本號寫入資料庫失敗：{settings_err}")
 
     return {
         "ok": True,
@@ -2041,8 +2045,10 @@ def get_internal_settings(app_id: str) -> dict:
     return settings
 
 def set_internal_settings(app_id: str, latest_version: str, update_changelog: str = "", stopped: Optional[bool] = None, stop_message: Optional[str] = None) -> Optional[str]:
-    internal_cache.invalidate(f"internal:{app_id}")   # [v2] 立即生效
     update_changelog = _repair_mojibake(update_changelog)
+    # 先讀「目前值」再寫入。注意：這裡不能先 invalidate 再讀，
+    # 否則 get_internal_settings() 會把資料庫裡還沒更新的舊值重新塞回快取，
+    # 造成「上傳完版本又跳回上一個版本」。
     current = get_internal_settings(app_id)
     new_stopped = current["stopped"] if stopped is None else bool(stopped)
     new_stop_message = current["stop_message"] if stop_message is None else stop_message.strip()
@@ -2071,6 +2077,8 @@ def set_internal_settings(app_id: str, latest_version: str, update_changelog: st
     except Exception:
         pass
 
+    # 寫入完成後才清快取，下一次讀取才會拿到新版本
+    internal_cache.invalidate(f"internal:{app_id}")
     return supabase_err
 
 @app.post("/api/admin/apps/{app_id}/upload-internal", dependencies=[Depends(require_admin)])
@@ -2116,7 +2124,9 @@ async def upload_internal_file(
             detail="上傳後在 Supabase Storage 找不到 YangEnx Internal.dll。請確認 bucket 權限，或改用 Supabase 後台直接上傳。",
         )
 
-    set_internal_settings(app_id, latest_version, update_changelog)
+    settings_err = set_internal_settings(app_id, latest_version, update_changelog)
+    if settings_err:
+        raise HTTPException(status_code=500, detail=f"檔案已上傳，但版本號寫入資料庫失敗：{settings_err}")
 
     return {
         "ok": True,
