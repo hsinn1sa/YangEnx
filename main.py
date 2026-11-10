@@ -238,6 +238,9 @@ ONLINE_TIMEOUT_SECONDS = int(os.environ.get("ONLINE_TIMEOUT_SECONDS", "150"))
 # 串流還開著時的容忍值要放寬：舊版客戶端心跳是 5 分鐘一次，
 # 用 150 秒會讓還沒更新的舊版使用者一直被誤判離線。
 SSE_OPEN_TIMEOUT_SECONDS = int(os.environ.get("SSE_OPEN_TIMEOUT_SECONDS", "330"))
+# 新版客戶端每 10 秒送一次 presence（純記憶體）；35 秒沒送就當離線，
+# 所以「關程式 / 模擬器閃退 / 斷網」最多 35 秒就會從名單消失。
+PRESENCE_TIMEOUT_SECONDS = int(os.environ.get("PRESENCE_TIMEOUT_SECONDS", "35"))
 
 
 @dataclass(eq=False)
@@ -751,9 +754,13 @@ def clean_active_connections():
     now_ts = time.time()
     for lk, entry in list(active_connections.items()):
         last = entry.get("last_seen", 0)
-        timeout = ONLINE_TIMEOUT_SECONDS
-        if entry.get("sse") and _streams.get(lk):
+        if entry.get("beacon"):
+            # 新版客戶端：10 秒一次 presence，35 秒沒送就是真的離線
+            timeout = PRESENCE_TIMEOUT_SECONDS
+        elif entry.get("sse") and _streams.get(lk):
             timeout = SSE_OPEN_TIMEOUT_SECONDS
+        else:
+            timeout = ONLINE_TIMEOUT_SECONDS
         if last <= 0 or (now_ts - last) > timeout:
             active_connections.pop(lk, None)
 
@@ -1308,6 +1315,9 @@ async def license_stream(request: Request, ticket: str = Query(...)):
             while True:
                 try:
                     event = await asyncio.wait_for(conn.queue.get(), timeout=SSE_KEEPALIVE_SECONDS)
+                    if event is None:
+                        # /api/offline 送來的結束訊號（正常下線）
+                        break
                     yield "data: " + json.dumps(event, ensure_ascii=False) + "\n\n"
                 except asyncio.TimeoutError:
                     # 保活註解：Cloudflare 大約 100 秒沒資料就會切斷連線
@@ -1334,6 +1344,50 @@ async def license_stream(request: Request, ticket: str = Query(...)):
             "X-Accel-Buffering": "no",
         },
     )
+
+# ------------------------------------------------------------------
+# 即時上下線：presence（每 10 秒）/ offline（關面板、登出、關程式）
+# ------------------------------------------------------------------
+class PresenceRequest(BaseModel):
+    license_key: str
+    app_secret: str
+
+
+@app.post("/api/presence")
+def presence_ping(req: PresenceRequest, request: Request):
+    """客戶端每 10 秒回報一次。只更新記憶體，不查資料庫。
+
+    後台超過 PRESENCE_TIMEOUT_SECONDS（35 秒）沒收到就當離線，
+    所以「關程式 / 模擬器閃退 / 斷網」最多 35 秒就會從名單消失。
+    """
+    application = resolve_app(req.app_secret)
+    entry = active_connections.get(req.license_key)
+    if entry is None:
+        entry = {
+            "app_id": application["id"],
+            "username": "",
+            "hwid": "",
+            "ip": get_client_ip(request),
+            "connected_at": datetime.now(timezone.utc).isoformat(),
+        }
+    entry["last_seen"] = time.time()
+    entry["beacon"] = True
+    active_connections[req.license_key] = entry
+    return {"status": "ok"}
+
+
+@app.post("/api/offline")
+async def presence_offline(req: PresenceRequest):
+    """客戶端主動說「我下線了」：立刻從名單移除，並讓 SSE 連線收掉。"""
+    resolve_app(req.app_secret)
+    existed = active_connections.pop(req.license_key, None) is not None
+    for conn in list(_streams.get(req.license_key, [])):
+        try:
+            conn.queue.put_nowait(None)      # SSE generator 收到 None 會正常結束
+        except Exception:
+            pass
+    return {"ok": True, "removed": existed}
+
 
 # ------------------------------------------------------------------
 # 相容性心跳 API: POST /api/heartbeat
