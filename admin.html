@@ -2527,6 +2527,8 @@
   window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeExtendModal(); });
   window.addEventListener("resize", initLightBeam);
   setInterval(() => { if (adminToken) fetchKeys(); }, 8000);
+  // 線上名單單獨每 3 秒刷新（比整張卡密表輕），下線的反應會快很多
+  setInterval(() => { if (adminToken) fetchOnline(); }, 3000);
 
   // 頁面載入完成時預備 (已移除 F5 重新載入自動登入功能)
   window.addEventListener("DOMContentLoaded", () => {
