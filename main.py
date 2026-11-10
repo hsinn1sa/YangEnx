@@ -232,6 +232,13 @@ SSE_TICKET_TTL = int(os.environ.get("SSE_TICKET_TTL", "60"))
 SSE_MAX_PER_KEY = int(os.environ.get("SSE_MAX_PER_KEY", "2"))
 SSE_MAX_TOTAL = int(os.environ.get("SSE_MAX_TOTAL", "2000"))
 
+# [v2] 線上名單的逾時：客戶端每次心跳都會更新 last_seen，超過這個秒數沒心跳就當離線。
+#      這樣「關程式 / 當機 / 拔網路」不用等 TCP 自己逾時（可能十幾分鐘）。
+ONLINE_TIMEOUT_SECONDS = int(os.environ.get("ONLINE_TIMEOUT_SECONDS", "150"))
+# 串流還開著時的容忍值要放寬：舊版客戶端心跳是 5 分鐘一次，
+# 用 150 秒會讓還沒更新的舊版使用者一直被誤判離線。
+SSE_OPEN_TIMEOUT_SECONDS = int(os.environ.get("SSE_OPEN_TIMEOUT_SECONDS", "330"))
+
 
 @dataclass(eq=False)
 class _StreamConn:
@@ -731,23 +738,23 @@ def touch_connection(license_key: str, app_id: str, username: str, hwid: str, ip
 
 
 def clean_active_connections():
+    """線上名單只看「最近有沒有收到心跳」。
+
+    為什麼不再看 SSE 串流還在不在：
+      使用者直接關掉程式、遊戲崩潰、拔網路時，伺服器端可能還握著一條
+      半死的 TCP 連線（要等 TCP 重傳逾時才會斷，常常十分鐘以上），
+      名單就會卡在線上很久 —— 這就是「關掉面板後還顯示在線」的原因。
+
+      心跳是客戶端主動送來的：程式活著就會一直更新 last_seen，
+      程式一關就停止，所以最多 ONLINE_TIMEOUT_SECONDS 秒就會消失。
+    """
     now_ts = time.time()
     for lk, entry in list(active_connections.items()):
-        # 真的存在 WebSocket 連線 → 交給連線本身管理
-        if entry.get("ws"):
-            continue
-
-        # SSE 連線：只要串流還在就一直算在線（心跳可能是 5 分鐘一次，不能靠 last_seen）
-        if entry.get("sse"):
-            if _streams.get(lk):
-                continue
-            # 串流已經不存在（例如被踢掉後沒清乾淨）→ 等 last_seen 過期再清
-            if now_ts - entry.get("last_seen", 0) > 60:
-                active_connections.pop(lk, None)
-            continue
-
-        # 只有心跳（沒有長連線）的使用者：60 秒沒心跳就當離線
-        if now_ts - entry.get("last_seen", 0) > 60:
+        last = entry.get("last_seen", 0)
+        timeout = ONLINE_TIMEOUT_SECONDS
+        if entry.get("sse") and _streams.get(lk):
+            timeout = SSE_OPEN_TIMEOUT_SECONDS
+        if last <= 0 or (now_ts - last) > timeout:
             active_connections.pop(lk, None)
 
 def normalize_version(v: Optional[str]) -> str:
