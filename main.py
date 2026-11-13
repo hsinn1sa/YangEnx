@@ -1889,6 +1889,33 @@ def ensure_bucket_exists():
     except Exception:
         pass
 
+
+def get_bucket_file_size_limit() -> int:
+    """回傳 bucket 的檔案大小上限（bytes）；0 = 沒設定或查不到（會用 Supabase 全域上限）。"""
+    if not supabase:
+        return 0
+    try:
+        for b in supabase.storage.list_buckets() or []:
+            if getattr(b, "name", "") == BUCKET_NAME:
+                return int(getattr(b, "file_size_limit", 0) or 0)
+    except Exception as e:
+        print(f"[bucket limit] {e}")
+    return 0
+
+
+def check_upload_size(file_size: int):
+    """上傳前先比對 bucket 上限，給出「怎麼修」的訊息，而不是 Supabase 的原始 413。"""
+    limit = get_bucket_file_size_limit()
+    if limit and file_size > limit:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"檔案 {file_size / 1048576:.1f} MB 超過 Supabase Storage 的檔案大小上限 "
+                f"{limit / 1048576:.1f} MB。請到 Supabase → Storage → {BUCKET_NAME} → 設定，"
+                f"把 File size limit 調高（免費方案最高 50 MB）後再上傳。"
+            ),
+        )
+
 @app.post("/api/admin/apps/{app_id}/upload-client", dependencies=[Depends(require_admin)])
 async def upload_client_file(
     app_id: str,
@@ -1911,6 +1938,8 @@ async def upload_client_file(
 
     if file_size == 0:
         raise HTTPException(status_code=400, detail="檔案是空的，請重新選擇 Client.dll")
+
+    check_upload_size(file_size)
 
     ensure_bucket_exists()
     try:
@@ -2164,6 +2193,8 @@ async def upload_internal_file(
 
     if file_size == 0:
         raise HTTPException(status_code=400, detail="檔案是空的，請重新選擇 YangEnx Internal.dll")
+
+    check_upload_size(file_size)
 
     ensure_bucket_exists()
     try:
